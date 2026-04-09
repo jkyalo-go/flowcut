@@ -1,0 +1,8 @@
+fastapi>=0.115
+uvicorn>=0.34
+sqlalchemy>=2.0
+watchdog>=3.0
+faster-whisper>=1.1
+scenedetect[opencv]>=0.6.5
+python-multipart
+aiofiles

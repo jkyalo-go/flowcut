@@ -1,0 +1,599 @@
+:root {
+  --bg: #0f0f0f;
+  --bg-card: #1a1a1a;
+  --bg-hover: #252525;
+  --border: #2a2a2a;
+  --text: #ccc;
+  --text-h: #fff;
+  --text-dim: #777;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --talking: #3b82f6;
+  --broll: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.header-project {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-project-name {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.header-project-dir {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: monospace;
+}
+
+.watch-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.watch-toggle.on {
+  border-color: var(--broll);
+  color: var(--broll);
+}
+
+.watch-toggle.off {
+  color: var(--text-dim);
+}
+
+.watch-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.watch-toggle.on .watch-toggle-dot {
+  background: var(--broll);
+}
+
+.watch-toggle-label {
+  font-weight: 500;
+}
+
+.app-main {
+  flex: 1;
+  padding: 24px;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+}
+.btn-ghost:hover {
+  background: var(--bg-hover);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Inputs */
+input[type="text"] {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-h);
+  font-size: 14px;
+}
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Project List */
+.project-list {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.project-list h2 {
+  font-size: 24px;
+  color: var(--text-h);
+  margin-bottom: 20px;
+}
+
+.project-list-loading {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 40px;
+}
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.project-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.project-card:hover {
+  border-color: var(--accent);
+}
+
+.project-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.project-card-header h3 {
+  font-size: 16px;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.project-card-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.project-card-delete:hover {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.project-card-dir {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-card-clips {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.new-project-card {
+  border-style: dashed;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  min-height: 120px;
+}
+
+.new-project-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.new-project-form {
+  cursor: default;
+}
+
+.new-project-form:hover {
+  border-color: var(--border);
+}
+
+.folder-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.folder-input-row input {
+  flex: 1;
+}
+
+.folder-input-row .btn {
+  flex-shrink: 0;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* Main Layout */
+.main-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 24px;
+  min-height: 600px;
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  padding-right: 24px;
+}
+
+/* Clip List */
+.clip-list h3 {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.clip-list.empty p {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.clip-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clip-card {
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+
+.clip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.clip-filename {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.clip-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  color: white;
+  white-space: nowrap;
+}
+
+.clip-type {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 6px;
+  font-weight: 600;
+}
+.clip-type.talking {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--talking);
+}
+.clip-type.broll {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--broll);
+}
+
+.clip-duration,
+.clip-sub-count {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: 8px;
+}
+
+.clip-error {
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 6px;
+  word-break: break-word;
+}
+
+.clip-progress {
+  margin-top: 8px;
+}
+
+.clip-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.clip-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.clip-progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.clip-progress-detail {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.clip-progress-pct {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Timeline */
+.timeline-container {
+  margin-top: 20px;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.timeline-header h3 {
+  font-size: 14px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.timeline-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.timeline-autofit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.timeline-autofit input {
+  cursor: pointer;
+}
+
+.timeline-duration {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.timeline-empty {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* react-timeline-editor wrapper */
+.timeline-editor-wrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.timeline-editor-wrapper .timeline-editor {
+  width: 100% !important;
+  height: 100px !important;
+}
+
+/* Hide the fade/stretch handles on clips */
+.timeline-editor-action .timeline-editor-action-left-stretch,
+.timeline-editor-action .timeline-editor-action-right-stretch {
+  display: none !important;
+}
+
+/* Tile-style clips */
+.timeline-editor-action {
+  background-color: transparent !important;
+  border-radius: 4px !important;
+  overflow: hidden;
+}
+
+/* Tile-style clip renders */
+.tl-action-render {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.tl-action-render.talking {
+  background: rgba(59, 130, 246, 0.5);
+}
+
+.tl-action-render.broll {
+  background: rgba(16, 185, 129, 0.5);
+}
+
+.tl-action-label {
+  font-size: 10px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tl-action-dur {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.2;
+}
+
+/* Video Player */
+.video-player {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.video-player-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+
+.video-placeholder {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 14px;
+  aspect-ratio: 16/9;
+  background: #000;
+}
+
+/* Render Controls */
+.render-controls {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.render-controls.done {
+  background: rgba(16, 185, 129, 0.1);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--broll);
+}
+
+.render-controls.rendering {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.render-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.render-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s;
+  border-radius: 4px;
+}
+
+.render-status {
+  font-size: 13px;
+  color: var(--text);
+}
