@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
-import { AbsoluteFill, OffthreadVideo, Sequence, useCurrentFrame } from "remotion";
-import { secondsToFrames } from "../lib/remotion";
+import React, { useCallback, useMemo } from "react";
+import { AbsoluteFill, Audio, OffthreadVideo, Sequence, useCurrentFrame } from "remotion";
+import { secondsToFrames, interpolateEnvelope, FPS } from "../lib/remotion";
+import { useTimelineStore } from "../stores/timelineStore";
 import type { TimelineItem } from "../types";
 
 const PREMOUNT_FRAMES = 30;
@@ -48,6 +49,7 @@ export const TimelineComposition: React.FC<Props> = React.memo(({ items }) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      <MusicLayer />
       {toMount.map((i) => {
         const clip = layout[i];
         const videoStartFrame = secondsToFrames(clip.item.start_time);
@@ -74,3 +76,42 @@ export const TimelineComposition: React.FC<Props> = React.memo(({ items }) => {
     </AbsoluteFill>
   );
 });
+
+const MusicLayer: React.FC = () => {
+  const musicItems = useTimelineStore((s) => s.musicItems);
+  const volumeEnvelope = useTimelineStore((s) => s.volumeEnvelope);
+
+  const makeVolumeCallback = useCallback(
+    (musicStartTime: number) => {
+      return (frame: number) => {
+        const timeInMusic = frame / FPS;
+        const timelineTime = musicStartTime + timeInMusic;
+        return interpolateEnvelope(volumeEnvelope, timelineTime);
+      };
+    },
+    [volumeEnvelope],
+  );
+
+  return (
+    <>
+      {musicItems.map((mi) => {
+        const startFrame = secondsToFrames(mi.start_time);
+        const durationInFrames = secondsToFrames(mi.end_time - mi.start_time);
+        if (durationInFrames <= 0) return null;
+
+        return (
+          <Sequence
+            key={`music-${mi.id}`}
+            from={startFrame}
+            durationInFrames={durationInFrames}
+          >
+            <Audio
+              src={`/api/assets/${mi.asset_id}/file`}
+              volume={makeVolumeCallback(mi.start_time)}
+            />
+          </Sequence>
+        );
+      })}
+    </>
+  );
+};

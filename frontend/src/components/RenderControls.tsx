@@ -72,10 +72,11 @@ export function RenderControls() {
           />
         </div>
         <span className="render-status">
-          {renderStage === "normalizing"
-            ? "Normalizing clips..."
-            : "Rendering..."}
-          {" "}
+          {renderStage === "initializing"
+            ? "Initializing..."
+            : renderStage === "mixing music"
+            ? "Mixing music..."
+            : "Rendering..."}{" "}
           {renderProgress}%
         </span>
       </div>

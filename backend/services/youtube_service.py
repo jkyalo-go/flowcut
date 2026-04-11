@@ -148,6 +148,18 @@ def upload_video(
 
     render_path = str(PROCESSED_DIR / f"project_{project_id}_render.mp4")
 
+    # YouTube forbids < and > in titles, and limits to 100 characters
+    if not title or not title.strip():
+        raise ValueError("Video title cannot be empty")
+    invalid_chars = [c for c in ['<', '>'] if c in title]
+    if invalid_chars:
+        raise ValueError(
+            f"Video title contains invalid characters: {' '.join(invalid_chars)}  "
+            "YouTube does not allow < or > in titles."
+        )
+    if len(title) > 100:
+        raise ValueError(f"Video title is {len(title)} characters — YouTube allows a maximum of 100.")
+
     body = {
         "snippet": {
             "title": title,

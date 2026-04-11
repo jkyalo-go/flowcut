@@ -1,12 +1,18 @@
 import asyncio
+import logging
+import re
 import tempfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import TimelineItem, MusicItem, Asset
 from routes.ws import broadcast
 from services.ducker import compute_volume_envelope, envelope_to_ffmpeg_expr
 from routes.music import _build_timeline_segments
+
+_OUT_TIME_RE = re.compile(r"out_time_us=(\d+)")
 
 
 def _resolve_source_and_range(item: TimelineItem) -> tuple[str, float, float] | None:
@@ -22,23 +28,111 @@ def _resolve_source_and_range(item: TimelineItem) -> tuple[str, float, float] | 
     return None
 
 
-async def extract_segment(source_path: str, start: float, end: float, output_path: str, width: int = 1920, height: int = 1080, fps: int = 30):
-    """Extract and normalize a segment from a source video."""
-    duration = end - start
-    cmd = [
-        "ffmpeg", "-y",
-        "-ss", str(start), "-i", source_path, "-t", str(duration),
-        "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,fps={fps}",
-        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-        "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
-        output_path,
-    ]
+async def _probe_audio_streams(segments: list[tuple[str, float, float]]) -> dict[str, bool]:
+    """Check which source files have audio streams. Returns {path: has_audio}."""
+    unique_paths = set(source for source, _, _ in segments)
+
+    async def _probe(path: str) -> tuple[str, bool]:
+        proc = await asyncio.create_subprocess_exec(
+            "ffprobe", "-v", "quiet", "-select_streams", "a",
+            "-show_entries", "stream=index", "-of", "csv=p=0", path,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await proc.communicate()
+        return (path, bool(stdout.strip()))
+
+    results = await asyncio.gather(*[_probe(p) for p in unique_paths])
+    return dict(results)
+
+
+def _build_concat_filter(
+    segments: list[tuple[str, float, float]],
+    has_audio: dict[str, bool],
+    width: int = 1920,
+    height: int = 1080,
+    fps: int = 30,
+) -> tuple[list[str], str]:
+    """Build FFmpeg input args and filter_complex for single-pass concat.
+
+    Deduplicates source files so each is opened only once as an input.
+    """
+    # Map unique source paths to input indices
+    source_to_idx: dict[str, int] = {}
+    input_args = []
+    for source, _, _ in segments:
+        if source not in source_to_idx:
+            source_to_idx[source] = len(source_to_idx)
+            input_args.extend(["-i", source])
+
+    filter_parts = []
+    for i, (source, start, end) in enumerate(segments):
+        inp = source_to_idx[source]
+        duration = end - start
+
+        vf = (
+            f"[{inp}:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,"
+            f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
+            f"fps={fps}[v{i}]"
+        )
+        filter_parts.append(vf)
+
+        if has_audio.get(source, False):
+            af = (
+                f"[{inp}:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS,"
+                f"aresample=48000,aformat=channel_layouts=stereo[a{i}]"
+            )
+        else:
+            af = (
+                f"anullsrc=r=48000:cl=stereo[_sil{i}];"
+                f"[_sil{i}]atrim=duration={duration},asetpts=PTS-STARTPTS[a{i}]"
+            )
+        filter_parts.append(af)
+
+    concat_inputs = "".join(f"[v{i}][a{i}]" for i in range(len(segments)))
+    filter_parts.append(f"{concat_inputs}concat=n={len(segments)}:v=1:a=1[vout][aout]")
+
+    return input_args, ";".join(filter_parts)
+
+
+async def _run_ffmpeg_with_progress(
+    cmd: list[str],
+    total_duration: float,
+    project_id: int,
+    pct_start: int = 0,
+    pct_end: int = 70,
+) -> None:
+    """Run FFmpeg with -progress pipe:1 for reliable progress reporting."""
+    cmd = [*cmd, "-progress", "pipe:1"]
     proc = await asyncio.create_subprocess_exec(
         *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )
-    _, stderr = await proc.communicate()
+    last_pct = -1
+
+    async def _read_progress():
+        nonlocal last_pct
+        async for raw_line in proc.stdout:
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            match = _OUT_TIME_RE.match(line)
+            if match and total_duration > 0:
+                current = int(match.group(1)) / 1_000_000
+                ratio = min(current / total_duration, 1.0)
+                pct = pct_start + int(ratio * (pct_end - pct_start))
+                if pct != last_pct:
+                    await broadcast(project_id, "render_progress", {
+                        "percent": pct, "stage": "rendering",
+                    })
+                    last_pct = pct
+
+    async def _read_stderr():
+        return await proc.stderr.read()
+
+    _, stderr_output = await asyncio.gather(_read_progress(), _read_stderr())
+    await proc.wait()
     if proc.returncode != 0:
-        raise RuntimeError(f"Segment extract failed: {stderr.decode()[-500:]}")
+        err = stderr_output.decode()[-1000:]
+        logger.error("FFmpeg failed (rc=%d): %s", proc.returncode, err)
+        raise RuntimeError(f"Render failed: {err}")
 
 
 async def render_timeline(project_id: int, output_path: str) -> str:
@@ -63,36 +157,34 @@ async def render_timeline(project_id: int, output_path: str) -> str:
         if not segments:
             raise ValueError("No valid clips in timeline")
 
-        await broadcast(project_id, "render_progress", {"percent": 0, "stage": "extracting"})
+        await broadcast(project_id, "render_progress", {"percent": 0, "stage": "rendering"})
+
+        logger.info("Rendering %d segments for project %d", len(segments), project_id)
+        await broadcast(project_id, "render_progress", {"percent": 0, "stage": "initializing"})
+        has_audio = await _probe_audio_streams(segments)
+        logger.info("Audio probe results: %s", has_audio)
+        input_args, filter_complex = _build_concat_filter(segments, has_audio)
+        total_duration = sum(end - start for _, start, end in segments)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            extracted = []
-            for i, (source, start, end) in enumerate(segments):
-                seg_path = str(Path(tmpdir) / f"seg_{i}.mp4")
-                await extract_segment(source, start, end, seg_path)
-                pct = int((i + 1) / len(segments) * 50)
-                await broadcast(project_id, "render_progress", {"percent": pct, "stage": "extracting"})
-                extracted.append(seg_path)
+            cmd = ["ffmpeg", "-y", *input_args]
 
-            # Write concat file
-            concat_file = str(Path(tmpdir) / "concat.txt")
-            with open(concat_file, "w") as f:
-                for p in extracted:
-                    f.write(f"file '{p}'\n")
+            if len(filter_complex) > 500_000:
+                script_path = str(Path(tmpdir) / "filter.txt")
+                with open(script_path, "w") as f:
+                    f.write(filter_complex)
+                cmd.extend(["-filter_complex_script", script_path])
+            else:
+                cmd.extend(["-filter_complex", filter_complex])
 
-            await broadcast(project_id, "render_progress", {"percent": 55, "stage": "concatenating"})
-
-            cmd = [
-                "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_file,
-                "-c", "copy",
+            cmd.extend([
+                "-map", "[vout]", "-map", "[aout]",
+                "-c:v", "h264_videotoolbox", "-q:v", "65",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
                 output_path,
-            ]
-            proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-            )
-            _, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(f"Render failed: {stderr.decode()[-500:]}")
+            ])
+
+            await _run_ffmpeg_with_progress(cmd, total_duration, project_id, 0, 70)
 
         # Check for music items and mix if present
         music_items = (
@@ -110,6 +202,10 @@ async def render_timeline(project_id: int, output_path: str) -> str:
         await broadcast(project_id, "render_done", {"output_path": output_path})
 
         return output_path
+    except Exception as e:
+        logger.exception("Render failed for project %d", project_id)
+        await broadcast(project_id, "render_error", {"error": str(e)})
+        raise
     finally:
         db.close()
 
