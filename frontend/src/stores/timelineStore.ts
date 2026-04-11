@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { RefObject } from "react";
 import type { PlayerRef } from "@remotion/player";
-import type { Project, Clip, TimelineItem } from "../types";
+import type { Project, Clip, TimelineItem, Asset, MusicItem, VolumeKeypoint } from "../types";
 
 interface TimelineStore {
   project: Project | null;
@@ -46,6 +46,18 @@ interface TimelineStore {
   thumbnailText: string;
   setThumbnailUrls: (urls: string[]) => void;
   setThumbnailText: (text: string) => void;
+
+  // Asset library
+  assets: Asset[];
+  setAssets: (assets: Asset[]) => void;
+
+  // Music track
+  musicItems: MusicItem[];
+  volumeEnvelope: VolumeKeypoint[];
+  musicLoading: boolean;
+  setMusicItems: (items: MusicItem[]) => void;
+  setVolumeEnvelope: (envelope: VolumeKeypoint[]) => void;
+  setMusicLoading: (loading: boolean) => void;
 
   // Auto-save status
   saveStatus: "idle" | "saving" | "saved";
@@ -124,6 +136,16 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   thumbnailText: "",
   setThumbnailUrls: (thumbnailUrls) => set({ thumbnailUrls }),
   setThumbnailText: (thumbnailText) => set({ thumbnailText }),
+
+  assets: [],
+  setAssets: (assets) => set({ assets }),
+
+  musicItems: [],
+  volumeEnvelope: [],
+  musicLoading: false,
+  setMusicItems: (musicItems) => set({ musicItems }),
+  setVolumeEnvelope: (volumeEnvelope) => set({ volumeEnvelope }),
+  setMusicLoading: (musicLoading) => set({ musicLoading }),
 
   saveStatus: "idle" as const,
   setSaveStatus: (saveStatus) => set({ saveStatus }),

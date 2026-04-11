@@ -9,6 +9,11 @@ class ClipType(str, enum.Enum):
     BROLL = "broll"
 
 
+class AssetType(str, enum.Enum):
+    MUSIC = "music"
+    SFX = "sfx"
+
+
 class ProcessingStatus(str, enum.Enum):
     PENDING = "pending"
     TRANSCRIBING = "transcribing"
@@ -41,6 +46,7 @@ class Project(Base):
 
     clips = relationship("Clip", back_populates="project", cascade="all, delete-orphan")
     timeline_items = relationship("TimelineItem", back_populates="project", cascade="all, delete-orphan")
+    music_items = relationship("MusicItem", back_populates="project", cascade="all, delete-orphan")
 
 
 class Clip(Base):
@@ -87,6 +93,31 @@ class TimelineItem(Base):
     project = relationship("Project", back_populates="timeline_items")
     clip = relationship("Clip")
     sub_clip = relationship("SubClip")
+
+
+class Asset(Base):
+    __tablename__ = "assets"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    asset_type = Column(Enum(AssetType), nullable=False)
+    duration = Column(Float, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class MusicItem(Base):
+    __tablename__ = "music_items"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
+    volume = Column(Float, default=0.25)
+
+    project = relationship("Project", back_populates="music_items")
+    asset = relationship("Asset")
 
 
 class YouTubeCredential(Base):

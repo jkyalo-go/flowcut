@@ -1,4 +1,5 @@
 import asyncio
+import subprocess
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -54,6 +55,15 @@ async def render_status(project_id: int):
             return {"status": "error", "error": str(task.exception())}
         return {"status": "done"}
     return {"status": "rendering"}
+
+
+@router.post("/{project_id}/reveal")
+async def reveal_in_finder(project_id: int):
+    path = PROCESSED_DIR / f"project_{project_id}_render.mp4"
+    if not path.exists():
+        raise HTTPException(404, "Render not found")
+    subprocess.run(["open", "-R", str(path)])
+    return {"ok": True}
 
 
 @router.get("/{project_id}/download")

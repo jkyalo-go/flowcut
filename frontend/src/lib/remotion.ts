@@ -1,5 +1,5 @@
 import type { TimelineRow, TimelineAction } from "@xzdarcy/react-timeline-editor";
-import type { TimelineItem } from "../types";
+import type { TimelineItem, MusicItem, VolumeKeypoint } from "../types";
 
 export const FPS = 30;
 
@@ -19,11 +19,15 @@ export interface VideoAction extends TimelineAction {
   clipType: string | null;
 }
 
+export interface MusicAction extends TimelineAction {
+  assetName: string;
+}
+
 /**
- * Convert backend TimelineItem[] into react-timeline-editor format.
- * All clips go on a single video track, placed back-to-back.
+ * Convert backend TimelineItem[] and MusicItem[] into react-timeline-editor format.
+ * Produces a video track and optionally a music track.
  */
-export function toEditorData(items: TimelineItem[]): {
+export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[]): {
   rows: TimelineRow[];
   actions: VideoAction[];
   totalDuration: number;
@@ -48,11 +52,19 @@ export function toEditorData(items: TimelineItem[]): {
     cursor += item.duration;
   }
 
+  const musicActions: MusicAction[] = (musicItems || []).map((mi) => ({
+    id: `music-${mi.id}`,
+    start: mi.start_time,
+    end: mi.end_time,
+    effectId: "music",
+    assetName: mi.asset_name,
+  }));
+
   const rows: TimelineRow[] = [
-    {
-      id: "video-track",
-      actions,
-    },
+    { id: "video-track", actions },
+    ...(musicActions.length > 0
+      ? [{ id: "music-track", actions: musicActions }]
+      : []),
   ];
 
   return { rows, actions, totalDuration: cursor };
@@ -131,4 +143,29 @@ export function computeFrameLayout(items: TimelineItem[]): FrameLayoutEntry[] {
       currentFrame += durationInFrames;
       return entry;
     });
+}
+
+/**
+ * Linear interpolation over a pre-computed volume envelope.
+ * The envelope is a list of {t, v} keypoints sorted by time.
+ */
+export function interpolateEnvelope(
+  envelope: VolumeKeypoint[],
+  timeSeconds: number,
+): number {
+  if (envelope.length === 0) return 0.25;
+  if (timeSeconds <= envelope[0].t) return envelope[0].v;
+  if (timeSeconds >= envelope[envelope.length - 1].t)
+    return envelope[envelope.length - 1].v;
+
+  for (let i = 0; i < envelope.length - 1; i++) {
+    const a = envelope[i];
+    const b = envelope[i + 1];
+    if (timeSeconds >= a.t && timeSeconds <= b.t) {
+      if (b.t === a.t) return a.v;
+      const ratio = (timeSeconds - a.t) / (b.t - a.t);
+      return a.v + (b.v - a.v) * ratio;
+    }
+  }
+  return envelope[envelope.length - 1].v;
 }

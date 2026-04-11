@@ -17,6 +17,7 @@ export function ProjectList() {
     setVideoCategory, setVideoVisibility, setSelectedThumbnailIndices, setDescSystemPrompt,
     setThumbnailUrls, setThumbnailText,
     setRenderProgress, setYoutubeUploadProgress, setYoutubeUploadResult, setYoutubeUploadError,
+    setMusicItems, setVolumeEnvelope,
   } = useTimelineStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +65,15 @@ export function ProjectList() {
     setClips(proj.clips || []);
     const tlRes = await fetch(`/api/timeline/${id}`);
     if (tlRes.ok) setTimelineItems(await tlRes.json());
+    // Load music items
+    fetch(`/api/music/${id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          setMusicItems(data.items || []);
+          setVolumeEnvelope(data.volume_envelope || []);
+        }
+      });
     setIsWatching(true);
     // Start watching in background — new clips arrive via websocket
     setScanningFiles(true);

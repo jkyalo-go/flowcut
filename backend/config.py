@@ -27,3 +27,10 @@ BROLL_CLIP_DURATION = 2.0
 SCENE_DETECT_THRESHOLD = 27.0
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
+
+ASSETS_DIR = DATA_DIR / "assets"
+
+MUSIC_BASE_VOLUME = 0.25
+MUSIC_DUCK_VOLUME = 0.08
+MUSIC_FADE_DURATION = 0.5

@@ -125,3 +125,36 @@ class DescriptionResponse(BaseModel):
 
 class TagsResponse(BaseModel):
     tags: list[str]
+
+
+class AssetResponse(BaseModel):
+    id: int
+    name: str
+    file_path: str
+    asset_type: str
+    duration: float
+
+    class Config:
+        from_attributes = True
+
+
+class MusicItemResponse(BaseModel):
+    id: int
+    asset_id: int
+    asset_name: str
+    start_time: float
+    end_time: float
+    volume: float
+
+    class Config:
+        from_attributes = True
+
+
+class VolumeKeypoint(BaseModel):
+    t: float
+    v: float
+
+
+class MusicAutoResponse(BaseModel):
+    items: list[MusicItemResponse]
+    volume_envelope: list[VolumeKeypoint]

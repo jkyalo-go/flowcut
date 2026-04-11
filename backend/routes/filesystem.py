@@ -1,7 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
 router = APIRouter()
@@ -29,11 +29,16 @@ print(json.dumps({"path": path, "cancelled": not bool(path)}))
 
 
 @router.get("/serve-video")
-async def serve_video(path: str = Query(...)):
+async def serve_video(path: str = Query(...), request: Request = None):
     """Serve a video file from the local filesystem for timeline playback."""
     p = Path(path)
     if not p.exists() or not p.is_file():
         raise HTTPException(404, "File not found")
+
+    range_header = request.headers.get("range") if request else None
+    file_size = p.stat().st_size
+    print(f"[serve-video] {p.name} size={file_size} range={range_header}")
+
     suffix = p.suffix.lower()
     media_types = {
         ".mp4": "video/mp4",

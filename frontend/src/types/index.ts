@@ -51,6 +51,28 @@ export interface TimelineItem {
   clip_type: string | null;
 }
 
+export interface Asset {
+  id: number;
+  name: string;
+  file_path: string;
+  asset_type: "music" | "sfx";
+  duration: number;
+}
+
+export interface MusicItem {
+  id: number;
+  asset_id: number;
+  asset_name: string;
+  start_time: number;
+  end_time: number;
+  volume: number;
+}
+
+export interface VolumeKeypoint {
+  t: number;
+  v: number;
+}
+
 export interface WsMessage {
   event: string;
   data: Record<string, unknown>;

@@ -1,5 +1,6 @@
 import { ProjectList } from "./components/ProjectList";
 import { ClipList } from "./components/ClipList";
+import { AssetLibrary } from "./components/AssetLibrary";
 import { Timeline } from "./components/Timeline";
 import { VideoPlayer } from "./components/VideoPlayer";
 import { RenderControls } from "./components/RenderControls";
@@ -26,7 +27,14 @@ function App() {
           <h1>Boost Vlog</h1>
         </header>
         <main className="app-main">
-          <ProjectList />
+          <div className="home-layout">
+            <aside className="home-sidebar">
+              <AssetLibrary />
+            </aside>
+            <div className="home-primary">
+              <ProjectList />
+            </div>
+          </div>
         </main>
       </div>
     );

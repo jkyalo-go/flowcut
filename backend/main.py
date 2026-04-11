@@ -5,10 +5,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from database import engine, Base
-from routes import projects, clips, timeline, render, ws, filesystem, generate, youtube
+from routes import projects, clips, timeline, render, ws, filesystem, generate, youtube, assets, music
 from workers.queue import processing_queue, process_worker
 from services.watcher import set_queue
-from config import PROCESSED_DIR, DATA_DIR
+from config import PROCESSED_DIR, DATA_DIR, ASSETS_DIR
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    ASSETS_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
     # Add new columns to existing tables (SQLite doesn't support IF NOT EXISTS for columns)
     with engine.connect() as conn:
@@ -78,3 +79,5 @@ app.include_router(filesystem.router, prefix="/api/fs", tags=["filesystem"])
 app.include_router(ws.router, prefix="/ws", tags=["websocket"])
 app.include_router(generate.router, prefix="/api/projects", tags=["generate"])
 app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
+app.include_router(assets.router, prefix="/api/assets", tags=["assets"])
+app.include_router(music.router, prefix="/api/music", tags=["music"])

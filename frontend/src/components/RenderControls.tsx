@@ -39,6 +39,12 @@ export function RenderControls() {
           <button className="btn btn-primary" onClick={startRender}>
             Re-export
           </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => fetch(`/api/render/${project.id}/reveal`, { method: "POST" })}
+          >
+            Open in Finder
+          </button>
           {isDone && (
             <button
               className="btn btn-ghost"

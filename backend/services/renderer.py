@@ -3,8 +3,10 @@ import tempfile
 from pathlib import Path
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import TimelineItem
+from models import TimelineItem, MusicItem, Asset
 from routes.ws import broadcast
+from services.ducker import compute_volume_envelope, envelope_to_ffmpeg_expr
+from routes.music import _build_timeline_segments
 
 
 def _resolve_source_and_range(item: TimelineItem) -> tuple[str, float, float] | None:
@@ -68,7 +70,7 @@ async def render_timeline(project_id: int, output_path: str) -> str:
             for i, (source, start, end) in enumerate(segments):
                 seg_path = str(Path(tmpdir) / f"seg_{i}.mp4")
                 await extract_segment(source, start, end, seg_path)
-                pct = int((i + 1) / len(segments) * 60)
+                pct = int((i + 1) / len(segments) * 50)
                 await broadcast(project_id, "render_progress", {"percent": pct, "stage": "extracting"})
                 extracted.append(seg_path)
 
@@ -78,7 +80,7 @@ async def render_timeline(project_id: int, output_path: str) -> str:
                 for p in extracted:
                     f.write(f"file '{p}'\n")
 
-            await broadcast(project_id, "render_progress", {"percent": 65, "stage": "concatenating"})
+            await broadcast(project_id, "render_progress", {"percent": 55, "stage": "concatenating"})
 
             cmd = [
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_file,
@@ -92,9 +94,101 @@ async def render_timeline(project_id: int, output_path: str) -> str:
             if proc.returncode != 0:
                 raise RuntimeError(f"Render failed: {stderr.decode()[-500:]}")
 
+        # Check for music items and mix if present
+        music_items = (
+            db.query(MusicItem)
+            .filter(MusicItem.project_id == project_id)
+            .order_by(MusicItem.start_time)
+            .all()
+        )
+
+        if music_items:
+            await broadcast(project_id, "render_progress", {"percent": 70, "stage": "mixing music"})
+            await _mix_music(items, music_items, output_path, project_id)
+
         await broadcast(project_id, "render_progress", {"percent": 100, "stage": "done"})
         await broadcast(project_id, "render_done", {"output_path": output_path})
 
         return output_path
     finally:
         db.close()
+
+
+async def _mix_music(
+    timeline_items: list[TimelineItem],
+    music_items: list[MusicItem],
+    video_path: str,
+    project_id: int,
+):
+    """Concatenate music files and mix into the video with ducking."""
+    segments, total_duration = _build_timeline_segments(timeline_items)
+    envelope = compute_volume_envelope(segments, total_duration)
+    volume_expr = envelope_to_ffmpeg_expr(envelope)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Step 1: Build concatenated music track
+        music_track_path = str(Path(tmpdir) / "music_track.wav")
+
+        if len(music_items) == 1:
+            mi = music_items[0]
+            duration = mi.end_time - mi.start_time
+            cmd = [
+                "ffmpeg", "-y", "-i", mi.asset.file_path,
+                "-t", str(duration), "-ac", "2", "-ar", "48000",
+                music_track_path,
+            ]
+        else:
+            inputs = []
+            filter_parts = []
+            for i, mi in enumerate(music_items):
+                duration = mi.end_time - mi.start_time
+                inputs.extend(["-i", mi.asset.file_path])
+                filter_parts.append(f"[{i}:a]atrim=0:{duration},asetpts=PTS-STARTPTS[a{i}]")
+
+            concat_labels = "".join(f"[a{i}]" for i in range(len(music_items)))
+            filter_parts.append(f"{concat_labels}concat=n={len(music_items)}:v=0:a=1[music]")
+            filter_complex = ";".join(filter_parts)
+
+            cmd = [
+                "ffmpeg", "-y", *inputs,
+                "-filter_complex", filter_complex,
+                "-map", "[music]", "-ac", "2", "-ar", "48000",
+                music_track_path,
+            ]
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Music concat failed: {stderr.decode()[-500:]}")
+
+        await broadcast(project_id, "render_progress", {"percent": 80, "stage": "mixing music"})
+
+        # Step 2: Mix music into video with ducking
+        mixed_path = str(Path(tmpdir) / "mixed.mp4")
+        filter_complex = (
+            f"[1:a]volume='{volume_expr}':eval=frame[ducked];"
+            f"[0:a][ducked]amix=inputs=2:duration=first:dropout_transition=0[aout]"
+        )
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", music_track_path,
+            "-filter_complex", filter_complex,
+            "-map", "0:v", "-map", "[aout]",
+            "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+            mixed_path,
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            raise RuntimeError(f"Music mixing failed: {stderr.decode()[-500:]}")
+
+        await broadcast(project_id, "render_progress", {"percent": 95, "stage": "mixing music"})
+
+        # Replace original output with mixed version
+        import shutil
+        shutil.move(mixed_path, video_path)

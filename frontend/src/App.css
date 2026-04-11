@@ -478,7 +478,6 @@ input[type="text"]:focus {
 
 .timeline-editor-wrapper .timeline-editor {
   width: 100% !important;
-  height: 100px !important;
 }
 
 /* Hide the fade/stretch handles on clips */
@@ -1160,4 +1159,186 @@ input[type="text"]:focus {
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+}
+
+/* ── Home Layout ── */
+
+.home-layout {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-primary {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+/* ── Asset Library ── */
+
+.asset-library {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+.asset-library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding: 0 4px 8px;
+}
+
+.asset-library-header h3 {
+  font-size: 14px;
+  color: var(--text-h);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.collapse-arrow {
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.collapse-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.asset-count {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.asset-library-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-btn {
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-hover);
+  border: 1px dashed var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 13px;
+}
+
+.upload-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.asset-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.asset-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.asset-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--bg-card);
+}
+
+.asset-item:hover {
+  background: var(--bg-hover);
+}
+
+.asset-play-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.asset-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.asset-duration {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.asset-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.asset-delete-btn:hover {
+  color: var(--danger);
+}
+
+/* ── Music Controls ── */
+
+.music-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.music-info {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Music Track on Timeline ── */
+
+.tl-action-render.music {
+  background: rgba(168, 85, 247, 0.25);
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  border-radius: 4px;
+  padding: 2px 6px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.tl-action-render.music .tl-action-label {
+  color: #c084fc;
+  font-size: 11px;
 }

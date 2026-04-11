@@ -2,12 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Timeline as TimelineEditor, type TimelineState } from "@xzdarcy/react-timeline-editor";
 import "@xzdarcy/react-timeline-editor/dist/react-timeline-editor.css";
 import { useTimelineStore } from "../stores/timelineStore";
-import { toEditorData, timelineSecondsToFrame, type VideoAction } from "../lib/remotion";
+import { toEditorData, timelineSecondsToFrame, type VideoAction, type MusicAction } from "../lib/remotion";
 
 const effects = {
   video: {
     id: "video",
     name: "Video",
+  },
+  music: {
+    id: "music",
+    name: "Music",
   },
 };
 
@@ -17,7 +21,7 @@ const MAX_SCALE_WIDTH = 500;
 const DEFAULT_SCALE_WIDTH = 160;
 
 export function Timeline() {
-  const { project, timelineItems, playerRef } = useTimelineStore();
+  const { project, timelineItems, musicItems, playerRef, setMusicItems, setVolumeEnvelope, musicLoading, setMusicLoading } = useTimelineStore();
   const timelineRef = useRef<TimelineState>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const syncingFromPlayer = useRef(false);
@@ -25,8 +29,8 @@ export function Timeline() {
   const [autoFit, setAutoFit] = useState(true);
 
   const { rows, totalDuration } = useMemo(
-    () => toEditorData(timelineItems),
-    [timelineItems]
+    () => toEditorData(timelineItems, musicItems),
+    [timelineItems, musicItems]
   );
 
   // Auto-fit: calculate scaleWidth so all clips fit in the container
@@ -102,6 +106,28 @@ export function Timeline() {
     return true;
   }, [handleCursorDrag]);
 
+  const handleAddMusic = async () => {
+    if (!project) return;
+    setMusicLoading(true);
+    try {
+      const res = await fetch(`/api/music/${project.id}/auto`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setMusicItems(data.items);
+        setVolumeEnvelope(data.volume_envelope);
+      }
+    } finally {
+      setMusicLoading(false);
+    }
+  };
+
+  const handleClearMusic = async () => {
+    if (!project) return;
+    await fetch(`/api/music/${project.id}`, { method: "DELETE" });
+    setMusicItems([]);
+    setVolumeEnvelope([]);
+  };
+
   if (!project) return null;
 
   return (
@@ -127,6 +153,25 @@ export function Timeline() {
             Fit all
           </label>
           <span className="timeline-duration">{totalDuration.toFixed(1)}s</span>
+          <div className="music-controls">
+            <button
+              className="btn btn-sm"
+              onClick={handleAddMusic}
+              disabled={musicLoading || timelineItems.length === 0}
+            >
+              {musicLoading ? "Adding..." : "Add Music"}
+            </button>
+            {musicItems.length > 0 && (
+              <>
+                <button className="btn btn-sm btn-ghost" onClick={handleClearMusic}>
+                  Clear Music
+                </button>
+                <span className="music-info">
+                  {musicItems.length} song{musicItems.length !== 1 ? "s" : ""}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
       {rows[0]?.actions.length === 0 ? (
@@ -140,11 +185,24 @@ export function Timeline() {
             scale={SCALE}
             scaleWidth={scaleWidth}
             rowHeight={50}
+            style={{ height: 52 + rows.length * 50 }}
             hideCursor={false}
             autoScroll={true}
+            autoReRender={false}
             onCursorDrag={handleCursorDrag}
             onClickTimeArea={handleClickTimeArea}
             getActionRender={(action) => {
+              if (action.effectId === "music") {
+                const m = action as MusicAction;
+                return (
+                  <div className="tl-action-render music" title={m.assetName}>
+                    <span className="tl-action-label">{m.assetName}</span>
+                    <span className="tl-action-dur">
+                      {(m.end - m.start).toFixed(1)}s
+                    </span>
+                  </div>
+                );
+              }
               const a = action as VideoAction;
               const isBroll = a.clipType === "broll";
               return (
