@@ -122,7 +122,8 @@ def select_boundaries_and_generate_prompts(
             "- Describes a visually interesting variation/remix of the b-roll footage\n"
             "- Is thematically connected to the adjacent talking segment's transcript\n"
             "- Is concise (1-2 sentences) and focuses on visual description\n"
-            "- Creates a smooth visual transition feel\n\n"
+            "- Creates a smooth visual transition feel\n"
+            "- MUST include 'no music' in every prompt\n\n"
             "Respond with ONLY valid JSON, no other text."
         ),
         messages=[{
@@ -194,6 +195,7 @@ async def generate_remix_video(
             aspect_ratio="16:9",
             number_of_videos=1,
             duration_seconds=int(REMIX_DURATION),
+            negative_prompt="music",
         ),
     )
 
