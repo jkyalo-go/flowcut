@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -5,11 +8,12 @@ from database import get_db
 from models import TimestampItem, TimelineItem, Project
 from schemas import TimestampItemResponse, TimestampItemUpdate, TimestampAutoResponse
 from services.timestamp_generator import generate_timestamps
+from routes.settings import _get_setting
 
 router = APIRouter()
 
 
-def _build_datetime_transcript(items: list[TimelineItem]) -> tuple[str, float]:
+def _build_datetime_transcript(items: list[TimelineItem], tz: ZoneInfo) -> tuple[str, float]:
     """Walk ordered timeline items and produce a transcript with both timeline positions and recording datetimes."""
     parts = []
     cursor = 0.0
@@ -29,7 +33,14 @@ def _build_datetime_transcript(items: list[TimelineItem]) -> tuple[str, float]:
 
         recorded_at = clip.recorded_at if clip else None
         transcript = clip.transcript if clip else None
-        datetime_str = recorded_at.isoformat() if recorded_at else "unknown"
+
+        if recorded_at:
+            # recorded_at is UTC — convert to user's local timezone
+            utc_dt = recorded_at.replace(tzinfo=timezone.utc)
+            local_dt = utc_dt.astimezone(tz)
+            datetime_str = local_dt.strftime("%A %B %d, %Y %I:%M %p")
+        else:
+            datetime_str = "unknown"
 
         line = f"[{cursor:.1f}s - {cursor + duration:.1f}s] (recorded: {datetime_str})"
         if transcript:
@@ -69,7 +80,9 @@ def auto_generate_timestamps(project_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    transcript_text, total_duration = _build_datetime_transcript(timeline_items)
+    tz_name = _get_setting(db, "timezone")
+    tz = ZoneInfo(tz_name)
+    transcript_text, total_duration = _build_datetime_transcript(timeline_items, tz)
     if not transcript_text or total_duration <= 0:
         raise HTTPException(400, "No clips available — process clips first")
 

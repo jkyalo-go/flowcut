@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { ProjectList } from "./components/ProjectList";
+import { Settings } from "./components/Settings";
 import { ClipList } from "./components/ClipList";
 import { AssetLibrary } from "./components/AssetLibrary";
 import { Timeline } from "./components/Timeline";
@@ -17,6 +19,7 @@ function App() {
   const project = useTimelineStore((s) => s.project);
   const setProject = useTimelineStore((s) => s.setProject);
   const setIsWatching = useTimelineStore((s) => s.setIsWatching);
+  const [showSettings, setShowSettings] = useState(false);
   useWebSocket(project?.id ?? null);
   useAutoSaveMetadata();
 
@@ -25,7 +28,15 @@ function App() {
       <div className="app">
         <header className="app-header">
           <h1>Boost Vlog</h1>
+          <button
+            className="btn btn-ghost settings-btn"
+            onClick={() => setShowSettings(true)}
+            title="Settings"
+          >
+            Settings
+          </button>
         </header>
+        {showSettings && <Settings onClose={() => setShowSettings(false)} />}
         <main className="app-main">
           <div className="home-layout">
             <aside className="home-sidebar">

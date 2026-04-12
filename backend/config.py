@@ -27,6 +27,7 @@ BROLL_CLIP_DURATION = 2.0
 SCENE_DETECT_THRESHOLD = 27.0
 
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+BROWSER_COMPATIBLE_CODECS = {"h264", "vp8", "vp9", "av1"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".ogg"}
 
 ASSETS_DIR = DATA_DIR / "assets"

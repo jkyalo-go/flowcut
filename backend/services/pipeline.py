@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import os
 import time
 from pathlib import Path
 from sqlalchemy.orm import Session
@@ -8,7 +10,44 @@ from services.transcriber import extract_audio, transcribe_file
 from services.classifier import classify
 from services.silence_remover import get_duration, get_creation_time
 from routes.ws import broadcast
-from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION
+from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
+
+logger = logging.getLogger(__name__)
+
+
+async def _get_video_codec(path: str) -> str:
+    """Return the codec name of the first video stream."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=codec_name",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        path,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await proc.communicate()
+    return stdout.decode().strip().lower()
+
+
+async def _generate_proxy(source_path: str, clip_id: int) -> str:
+    """Transcode to an H.264 proxy for browser playback. Returns output path."""
+    os.makedirs(PROCESSED_DIR, exist_ok=True)
+    out_path = str(PROCESSED_DIR / f"proxy_{clip_id}.mp4")
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-y", "-i", source_path,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "28",
+        "-vf", "scale=-2:1080",
+        "-c:a", "aac", "-b:a", "128k",
+        "-movflags", "+faststart",
+        out_path,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"Proxy generation failed: {stderr.decode()[-500:]}")
+    return out_path
 
 
 async def process_clip(clip_id: int):
@@ -31,6 +70,22 @@ async def process_clip(clip_id: int):
             clip.recorded_at = get_creation_time(clip.source_path)
 
         total_duration = clip.duration or 0
+
+        # --- Proxy generation for non-browser-compatible codecs ---
+        try:
+            codec = await _get_video_codec(clip.source_path)
+            if codec not in BROWSER_COMPATIBLE_CODECS:
+                logger.info(f"Clip {clip_id}: codec '{codec}' not browser-compatible, generating proxy")
+                await broadcast(project_id, "clip_progress", {
+                    "clip_id": clip_id, "status": "processing",
+                    "progress": 5, "detail": f"generating preview proxy ({codec} \u2192 h264)",
+                })
+                proxy_path = await _generate_proxy(clip.source_path, clip_id)
+                clip.processed_path = proxy_path
+                db.commit()
+                logger.info(f"Clip {clip_id}: proxy saved to {proxy_path}")
+        except Exception as e:
+            logger.warning(f"Clip {clip_id}: proxy generation failed, continuing: {e}")
 
         # --- Step 1: Transcribe (0-70% of overall) ---
         clip.status = ProcessingStatus.TRANSCRIBING
@@ -55,8 +110,6 @@ async def process_clip(clip_id: int):
         clip.transcript = text
 
         # Debug: print transcript with timestamps
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f"=== TRANSCRIPT for clip {clip_id} ({len(segments)} segments) ===")
         for seg in segments:
             logger.info(f"  [{seg['start']:.2f}s -> {seg['end']:.2f}s] ({seg['end']-seg['start']:.2f}s) {seg['text']}")

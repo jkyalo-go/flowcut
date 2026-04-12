@@ -14,7 +14,8 @@ def _resolve_item(item: TimelineItem) -> TimelineItemResponse:
         sub = item.sub_clip
         parent = sub.parent_clip
         source_path = parent.source_path if parent else ""
-        video_url = f"/api/fs/serve-video?path={quote(source_path, safe='')}" if source_path else ""
+        playback_path = (parent.processed_path or parent.source_path) if parent else ""
+        video_url = f"/api/fs/serve-video?path={quote(playback_path, safe='')}" if playback_path else ""
         start_time = sub.start_time
         end_time = sub.end_time
         duration = end_time - start_time
@@ -27,7 +28,8 @@ def _resolve_item(item: TimelineItem) -> TimelineItemResponse:
     elif item.clip_id and item.clip:
         clip = item.clip
         source_path = clip.source_path
-        video_url = f"/api/fs/serve-video?path={quote(source_path, safe='')}" if source_path else ""
+        playback_path = clip.processed_path or clip.source_path
+        video_url = f"/api/fs/serve-video?path={quote(playback_path, safe='')}" if playback_path else ""
         start_time = 0
         end_time = clip.duration or 0
         duration = end_time

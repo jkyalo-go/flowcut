@@ -159,6 +159,14 @@ class TimestampItem(Base):
     project = relationship("Project", back_populates="timestamp_items")
 
 
+class AppSettings(Base):
+    __tablename__ = "app_settings"
+
+    id = Column(Integer, primary_key=True)
+    key = Column(String, nullable=False, unique=True)
+    value = Column(String, nullable=False)
+
+
 class YouTubeCredential(Base):
     __tablename__ = "youtube_credentials"
 

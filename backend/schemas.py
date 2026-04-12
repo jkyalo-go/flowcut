@@ -218,3 +218,11 @@ class TimestampItemUpdate(BaseModel):
 
 class TimestampAutoResponse(BaseModel):
     items: list[TimestampItemResponse]
+
+
+class SettingsResponse(BaseModel):
+    timezone: str
+
+
+class SettingsUpdate(BaseModel):
+    timezone: str | None = None
