@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 import anthropic
+import openai as openai_sdk
 from google import genai
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
     AIProvider.ANTHROPIC.value: ["claude-sonnet-4-20250514", "claude-3-5-haiku-latest"],
+    AIProvider.OPENAI.value: ["gpt-4o", "gpt-4o-mini"],
     AIProvider.VERTEX.value: ["gemini-2.5-flash", "gemini-2.5-pro"],
     AIProvider.GEMINI.value: ["gemini-2.5-flash", "gemini-2.5-pro"],
     AIProvider.DEEPGRAM.value: ["nova-3"],
@@ -34,6 +36,8 @@ TASK_PROVIDER_DEFAULTS = {
     "tags": AIProvider.ANTHROPIC,
     "thumbnail": AIProvider.VERTEX,
     "broll": AIProvider.DASHSCOPE,
+    "edit_planning": AIProvider.ANTHROPIC,   # SIE free-form reasoning
+    "style_critique": AIProvider.ANTHROPIC,  # SIE reflection pass
 }
 
 
@@ -52,6 +56,7 @@ class AIProviderRegistry:
     def __init__(self):
         self._anthropic_client: anthropic.Anthropic | None = None
         self._gemini_client: genai.Client | None = None
+        self._openai_client: openai_sdk.OpenAI | None = None
 
     def provider_catalog(self, db: Session | None = None) -> list[dict]:
         if db is None:
@@ -148,6 +153,17 @@ class AIProviderRegistry:
             else:
                 self._gemini_client = genai.Client(api_key=key)
         return self._gemini_client
+
+    def _get_openai_client(self, api_key: str | None = None) -> openai_sdk.OpenAI:
+        import os
+        key = api_key or os.getenv("OPENAI_API_KEY")
+        if not key:
+            raise RuntimeError("OpenAI API key is not configured")
+        if api_key:
+            return openai_sdk.OpenAI(api_key=key)
+        if self._openai_client is None:
+            self._openai_client = openai_sdk.OpenAI(api_key=key)
+        return self._openai_client
 
     def _record_usage(
         self,
@@ -259,6 +275,87 @@ class AIProviderRegistry:
                 start_time=start,
                 status=AIUsageStatus.ERROR,
                 error_message=str(exc),
+            )
+            raise
+
+
+    def _run_instructor_anthropic(self, api_key, model, system, user_content, response_model, max_retries=3):
+        import instructor
+        client = instructor.from_anthropic(self._get_anthropic_client(api_key))
+        messages = [{"role": "user", "content": user_content}]
+        kwargs = dict(model=model, max_tokens=2048, messages=messages, response_model=response_model, max_retries=max_retries)
+        if system:
+            kwargs["system"] = system
+        return client.messages.create(**kwargs)
+
+    def _run_instructor_openai(self, api_key, model, system, user_content, response_model, max_retries=3):
+        import instructor
+        client = instructor.from_openai(self._get_openai_client(api_key))
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": user_content})
+        return client.chat.completions.create(
+            model=model, messages=messages, response_model=response_model, max_retries=max_retries,
+        )
+
+    def _run_instructor_vertex(self, api_key, model, system, user_content, response_model, max_retries=3):
+        """Vertex AI structured output via the OpenAI-compatible endpoint."""
+        import instructor, os
+        key = api_key or os.getenv("GOOGLE_API_KEY", "placeholder")
+        base_url = (
+            f"https://{VERTEX_LOCATION}-aiplatform.googleapis.com/v1beta1/projects/"
+            f"{VERTEX_PROJECT_ID}/locations/{VERTEX_LOCATION}/endpoints/openapi/chat/completions"
+        )
+        vertex_client = openai_sdk.OpenAI(api_key=key, base_url=base_url)
+        client = instructor.from_openai(vertex_client)
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": user_content})
+        return client.chat.completions.create(
+            model=model, messages=messages, response_model=response_model, max_retries=max_retries,
+        )
+
+    def run_structured_task(
+        self,
+        db,
+        workspace,
+        task_type: str,
+        prompt_builder: Callable[[AIProvider, str], tuple[str | None, str]],
+        response_model: type,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        clip_id: str | None = None,
+        max_retries: int = 3,
+    ):
+        """Like run_text_task but returns a Pydantic model via Instructor.
+        Supports Anthropic, OpenAI, and Vertex AI (OpenAI-compat endpoint)."""
+        provider, model, credential_source, api_key = self.select_provider(db, workspace, task_type)
+        start = time.time()
+        system_prompt, user_prompt = prompt_builder(provider, model)
+        try:
+            if provider == AIProvider.ANTHROPIC:
+                result = self._run_instructor_anthropic(api_key, model, system_prompt, user_prompt, response_model, max_retries)
+            elif provider == AIProvider.OPENAI:
+                result = self._run_instructor_openai(api_key, model, system_prompt, user_prompt, response_model, max_retries)
+            elif provider in {AIProvider.VERTEX, AIProvider.GEMINI}:
+                result = self._run_instructor_vertex(api_key, model, system_prompt, user_prompt, response_model, max_retries)
+            else:
+                raise RuntimeError(f"Provider {provider.value} does not support structured task {task_type}")
+            self._record_usage(
+                db, workspace_id=workspace.id, user_id=user_id, project_id=project_id,
+                clip_id=clip_id, task_type=task_type, provider=provider, model=model,
+                credential_source=credential_source, start_time=start,
+            )
+            return result
+        except Exception as exc:
+            logger.exception("AI structured task failed")
+            self._record_usage(
+                db, workspace_id=workspace.id, user_id=user_id, project_id=project_id,
+                clip_id=clip_id, task_type=task_type, provider=provider, model=model,
+                credential_source=credential_source, start_time=start,
+                status=AIUsageStatus.ERROR, error_message=str(exc),
             )
             raise
 

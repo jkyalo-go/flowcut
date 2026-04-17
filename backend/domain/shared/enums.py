@@ -67,6 +67,7 @@ class CredentialSource(str, enum.Enum):
 
 class AIProvider(str, enum.Enum):
     ANTHROPIC = "anthropic"
+    OPENAI = "openai"
     VERTEX = "vertex"
     GEMINI = "gemini"
     DEEPGRAM = "deepgram"
