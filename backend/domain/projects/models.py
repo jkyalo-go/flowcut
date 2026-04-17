@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -45,9 +45,13 @@ class AppSettings(Base):
     __tablename__ = "app_settings"
 
     id = Column(UUID_SQL_TYPE, primary_key=True, default=new_uuid)
-    workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=True)
-    key = Column(String, nullable=False, unique=True)
+    workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=False)
+    key = Column(String, nullable=False)
     value = Column(String, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "key", name="uq_app_settings_workspace_key"),
+    )
 
 
 class StyleProfile(Base):

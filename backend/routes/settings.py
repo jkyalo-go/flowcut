@@ -22,15 +22,24 @@ def _get_setting(db: Session, key: str, workspace_id: str | None = None) -> str:
 
 
 def _set_setting(db: Session, key: str, value: str, workspace_id: str | None = None) -> None:
+    from sqlalchemy.exc import IntegrityError
     query = db.query(AppSettings).filter(AppSettings.key == key)
     if workspace_id is not None:
         query = query.filter(AppSettings.workspace_id == workspace_id)
     row = query.first()
     if row:
         row.value = value
+        db.commit()
     else:
-        db.add(AppSettings(workspace_id=workspace_id, key=key, value=value))
-    db.commit()
+        try:
+            db.add(AppSettings(workspace_id=workspace_id, key=key, value=value))
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            row = query.first()
+            if row:
+                row.value = value
+                db.commit()
 
 
 @router.get("", response_model=SettingsResponse)

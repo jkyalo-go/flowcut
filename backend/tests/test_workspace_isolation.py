@@ -159,3 +159,15 @@ def test_list_assets_scoped_to_workspace(client, db, workspace_a, workspace_b):
     assert resp_b.status_code == 200
     ids_b = [a["id"] for a in resp_b.json()]
     assert str(asset.id) not in ids_b
+
+
+def test_two_workspaces_can_store_same_setting_key(db, workspace_a, workspace_b):
+    from domain.projects import AppSettings
+    ws_a_id, _ = workspace_a
+    ws_b_id, _ = workspace_b
+
+    db.add(AppSettings(workspace_id=ws_a_id, key="timezone", value="UTC"))
+    db.add(AppSettings(workspace_id=ws_b_id, key="timezone", value="America/New_York"))
+    db.commit()  # Must not raise IntegrityError
+    count = db.query(AppSettings).filter(AppSettings.key == "timezone").count()
+    assert count == 2

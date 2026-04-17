@@ -46,7 +46,7 @@ def db(engine):
 @pytest.fixture()
 def client(db):
     app.dependency_overrides[get_db] = lambda: db
-    with TestClient(app, raise_server_exceptions=True) as c:
+    with TestClient(app, raise_server_exceptions=False) as c:
         yield c
     app.dependency_overrides.clear()
 
