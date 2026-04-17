@@ -46,6 +46,11 @@ export function PlatformsPage() {
     setRedirecting(platform)
     try {
       const data = await api.get<{ url: string }>(`/api/platforms/${platform}/auth/start`)
+      if (!data?.url) {
+        setError('OAuth start returned no redirect URL')
+        setRedirecting(null)
+        return
+      }
       window.location.assign(data.url)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start OAuth')
