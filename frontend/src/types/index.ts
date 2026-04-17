@@ -186,8 +186,9 @@ export interface PlatformConnection {
   id: string
   platform: string
   display_name: string
-  status: string
+  status: 'active' | 'expired' | 'error'
   scopes: string[]
+  workspace_id?: string
 }
 
 export interface CalendarSlot {
