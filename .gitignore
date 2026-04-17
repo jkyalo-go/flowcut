@@ -8,3 +8,4 @@ backend/static/processed/
 .DS_Store
 *.db
 .worktrees/
+backend/env/
