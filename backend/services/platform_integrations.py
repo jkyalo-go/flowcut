@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from sqlalchemy.orm import Session
@@ -32,7 +35,7 @@ def _decrypt_stored_token(stored: str | None) -> str | None:
     try:
         return decrypt_token(base64.b64decode(stored))
     except Exception:
-        # Fallback for plaintext tokens stored before encryption was introduced
+        logger.info("Token decrypt fallback: treating stored value as plaintext (legacy or unencrypted row)")
         return stored
 
 

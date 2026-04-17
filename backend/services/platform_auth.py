@@ -3,11 +3,14 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from sqlalchemy.orm import Session
@@ -29,7 +32,7 @@ def _decrypt_token_str(stored: str | None) -> str | None:
     try:
         return decrypt_token(base64.b64decode(stored))
     except Exception:
-        # Fallback: token may have been stored as plaintext before encryption was introduced
+        logger.info("Token decrypt fallback: treating stored value as plaintext (legacy or unencrypted row)")
         return stored
 
 from config import (

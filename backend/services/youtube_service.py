@@ -3,6 +3,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Callable
 
+logger = logging.getLogger(__name__)
+
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -33,9 +35,9 @@ def _dec(stored: str | None) -> str | None:
     try:
         return decrypt_token(base64.b64decode(stored))
     except Exception:
-        return stored  # fallback for plaintext tokens stored before encryption
+        logger.info("Token decrypt fallback: treating stored value as plaintext (legacy or unencrypted row)")
+        return stored
 
-logger = logging.getLogger(__name__)
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
