@@ -26,18 +26,18 @@ export default function BillingPage() {
       api.get<SubscriptionPlan[]>('/api/enterprise/plans'),
       api.get<WorkspaceSubscription>('/api/enterprise/subscription').catch(() => null),
       api.get<QuotaPolicy>('/api/enterprise/quota').catch(() => null),
-      api.get<UsageRecord[]>('/api/enterprise/usage').catch(() => []),
+      api.get<UsageRecord[]>('/api/enterprise/usage').catch((): UsageRecord[] => []),
     ])
       .then(([plansData, subData, quotaData, usageData]) => {
         if (!mounted) return
         setPlans(plansData)
         setSub(subData)
         setQuota(quotaData)
-        setUsage(usageData as UsageRecord[])
+        setUsage(usageData)
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (!mounted) return
-        setError(err?.message ?? 'Failed to load billing data')
+        setError(err instanceof Error ? err.message : 'Failed to load billing data')
       })
       .finally(() => {
         if (mounted) setLoading(false)
@@ -55,7 +55,7 @@ export default function BillingPage() {
       window.location.assign(data.url)
     } catch (err: unknown) {
       setCheckingOut(null)
-      setError((err as Error)?.message ?? 'Checkout failed')
+      setError(err instanceof Error ? err.message : 'Checkout failed')
     }
   }
 
