@@ -85,7 +85,7 @@ def review_queue(workspace=Depends(get_current_workspace), db: Session = Depends
 
 
 @router.post("/review-queue/{clip_id}")
-def apply_review_action(
+async def apply_review_action(
     clip_id: str,
     body: ReviewActionRequest,
     workspace=Depends(get_current_workspace),

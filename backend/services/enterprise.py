@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timezone
 
+from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 
 from domain.enterprise import AdminActionLog, UsageLedger
@@ -87,10 +88,11 @@ def check_quota(workspace_id: str, dimension: str, requested_quantity: float, db
 
     # Sum usage for the current calendar month
     period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
-    result = db.query(UsageLedger).filter(
+    used = db.query(
+        sqlfunc.coalesce(sqlfunc.sum(UsageLedger.quantity), 0.0)
+    ).filter(
         UsageLedger.workspace_id == workspace_id,
         UsageLedger.category == dimension,
         UsageLedger.created_at >= period_start,
-    ).all()
-    used = sum(r.quantity for r in result)
+    ).scalar() or 0.0
     return (used + requested_quantity) <= limit_value

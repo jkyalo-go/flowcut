@@ -27,10 +27,15 @@ def test_re_plan_clip_updates_status():
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = mock_clip
 
+    mock_manifest = MagicMock()
+    mock_manifest.model_dump_json.return_value = '{"cuts": []}'
+    mock_manifest.confidence = 0.9
+
     with patch("services.sie.re_planner.SessionLocal", return_value=mock_db):
         with patch("services.sie.re_planner.json.loads", return_value={}):
-            asyncio.run(__import__("services.sie.re_planner", fromlist=["re_plan_clip"]).re_plan_clip(
-                "clip-1", [{"instruction": "make intro shorter"}]
-            ))
+            with patch("services.sie.planner.generate_edit_plan", return_value=mock_manifest):
+                asyncio.run(__import__("services.sie.re_planner", fromlist=["re_plan_clip"]).re_plan_clip(
+                    "clip-1", [{"instruction": "make intro shorter"}]
+                ))
 
     assert mock_clip.status == "draft"

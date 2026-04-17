@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -10,6 +11,11 @@ logger = logging.getLogger(__name__)
 
 async def re_plan_clip(clip_id: str, corrections: list[dict]):
     """Re-generate the edit plan for a rejected clip incorporating creator corrections."""
+    await asyncio.to_thread(_re_plan_clip_sync, clip_id, corrections)
+
+
+def _re_plan_clip_sync(clip_id: str, corrections: list[dict]):
+    """Synchronous implementation — runs in a thread via asyncio.to_thread."""
     from domain.media import Clip
     from domain.projects import StyleProfile
     db = SessionLocal()
@@ -32,6 +38,7 @@ async def re_plan_clip(clip_id: str, corrections: list[dict]):
         correction_text = "; ".join(c.get("instruction", "") for c in corrections if c.get("instruction"))
         augmented_style = {**style_doc, "corrections_to_apply": correction_text}
 
+        plan_succeeded = False
         try:
             from services.sie.planner import generate_edit_plan
             moments = []
@@ -54,14 +61,16 @@ async def re_plan_clip(clip_id: str, corrections: list[dict]):
                 clip.edit_manifest = manifest.model_dump_json()
             if hasattr(clip, 'edit_confidence'):
                 clip.edit_confidence = manifest.confidence
-
+            plan_succeeded = True
         except Exception as e:
             logger.warning("Re-plan generate_edit_plan failed for clip %s: %s", clip_id, e)
 
         if hasattr(clip, 'review_corrections'):
             clip.review_corrections = json.dumps(corrections)
-        if hasattr(clip, 'status'):
+        if hasattr(clip, 'status') and plan_succeeded:
             clip.status = "draft"
+        elif hasattr(clip, 'status') and not plan_succeeded:
+            clip.status = "re_plan_failed"
         db.commit()
 
         if profile and getattr(profile, 'mem0_user_id', None):
