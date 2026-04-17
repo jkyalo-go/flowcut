@@ -4,6 +4,7 @@ export interface Project {
   workspace_id: string
   status?: string
   created_at?: string
+  render_path?: string | null
 }
 
 export interface SubClip {
