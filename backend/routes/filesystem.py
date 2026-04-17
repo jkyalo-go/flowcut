@@ -1,3 +1,6 @@
+# NOTE: Intentionally unauthenticated. This module exposes local filesystem
+# utilities (folder picker, file listing) that operate on the server's local
+# disk — not tenant data. Do not add tenant-specific data access here.
 import asyncio
 import json
 from pathlib import Path
