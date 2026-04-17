@@ -195,10 +195,10 @@ export interface CalendarSlot {
   id: string
   platform: string
   scheduled_at: string
-  status: string
+  status: 'scheduled' | 'processing' | 'published' | 'failed' | 'cancelled'
   clip_id: string
-  publish_url?: string
-  failure_reason?: string
+  publish_url?: string | null
+  failure_reason?: string | null
 }
 
 export interface AIProviderConfig {
