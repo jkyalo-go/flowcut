@@ -13,7 +13,7 @@ interface State {
 export class ErrorBoundary extends React.Component<Props, State> {
   state: State = { error: null, retryKey: 0 }
 
-  static getDerivedStateFromError(error: Error): Partial<State> {
+  static getDerivedStateFromError(error: Error): Partial<State> | null {
     return { error }
   }
 
