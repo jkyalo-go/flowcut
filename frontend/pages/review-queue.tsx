@@ -48,7 +48,7 @@ export default function ReviewQueuePage() {
     Promise.all([
       api.get<AutonomySettings>('/api/autonomy/settings'),
       api.get<ReviewQueueItem[]>('/api/autonomy/review-queue'),
-      api.get<AuditEntry[]>('/api/autonomy/audit').catch(() => [] as AuditEntry[]),
+      api.get<AuditEntry[]>('/api/autonomy/audit-log').catch(() => [] as AuditEntry[]),
     ]).then(([s, q, a]) => {
       if (!mounted.current) return
       setSettings(s)
@@ -67,10 +67,11 @@ export default function ReviewQueuePage() {
     if (!reviewQueueDirty) return
     api.get<ReviewQueueItem[]>('/api/autonomy/review-queue')
       .then((q) => {
+        if (!mounted.current) return
         setQueue(q)
         setReviewQueueDirty(false)
       })
-      .catch(() => setReviewQueueDirty(false))
+      .catch(() => { if (mounted.current) setReviewQueueDirty(false) })
   }, [reviewQueueDirty, setReviewQueueDirty])
 
   function confidenceBadge(score: number): 'default' | 'secondary' | 'destructive' {
@@ -88,12 +89,12 @@ export default function ReviewQueuePage() {
     setActionError(null)
 
     const correctionText = corrections[clipId]?.trim()
-    const body: { action: string; corrections?: { instruction: string }[] } = { action }
+    const body: { corrections?: { instruction: string }[] } = {}
     if (correctionText) {
       body.corrections = [{ instruction: correctionText }]
     }
 
-    api.post(`/api/autonomy/review-queue/${clipId}`, body).catch((err) => {
+    api.post(`/api/autonomy/review-queue/${clipId}/${action}`, body).catch((err) => {
       // Restore item on error
       setQueue((prev) => [item, ...prev])
       setActionError(err?.message ?? 'Action failed')
@@ -102,7 +103,7 @@ export default function ReviewQueuePage() {
 
   function saveSettings() {
     setSavingSettings(true)
-    api.put<AutonomySettings>('/api/autonomy/settings', settings)
+    api.post<AutonomySettings>('/api/autonomy/settings', settings)
       .then((updated) => {
         setSettings(updated)
         setSavingSettings(false)
@@ -111,7 +112,7 @@ export default function ReviewQueuePage() {
   }
 
   function testNotification() {
-    api.post('/api/autonomy/notifications/test', {}).catch(() => {})
+    api.post('/api/autonomy/test-settings', {}).catch(() => {})
   }
 
   if (loading) {
