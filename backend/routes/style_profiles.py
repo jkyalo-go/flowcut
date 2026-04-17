@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
 from domain.projects import StyleProfile
-from routes.auth import get_current_session
+from dependencies import get_current_workspace
 from services.sie.cold_start import get_genre_centroid, SUPPORTED_GENRES
 
 router = APIRouter(prefix="/style-profiles", tags=["style-profiles"])
@@ -15,12 +15,21 @@ def list_genres():
 
 
 @router.post("")
-def create_profile(payload: dict, db: Session = Depends(get_db), session=Depends(get_current_session)):
+def create_profile(payload: dict, db: Session = Depends(get_db), workspace=Depends(get_current_workspace)):
+    project_id = payload.get("project_id")
+    if project_id:
+        from domain.projects import Project
+        proj = db.query(Project).filter(
+            Project.id == project_id,
+            Project.workspace_id == workspace.id,
+        ).first()
+        if not proj:
+            raise HTTPException(404, "Project not found")
     genre = payload.get("genre", "vlog")
     centroid = get_genre_centroid(genre)
     profile = StyleProfile(
-        workspace_id=session.workspace_id,
-        project_id=payload.get("project_id"),
+        workspace_id=workspace.id,
+        project_id=project_id,
         name=payload.get("name", f"{genre.title()} Profile"),
         genre=genre,
         style_doc=json.dumps(centroid),
@@ -35,21 +44,21 @@ def create_profile(payload: dict, db: Session = Depends(get_db), session=Depends
 
 
 @router.get("")
-def list_profiles(db: Session = Depends(get_db), session=Depends(get_current_session)):
-    profiles = db.query(StyleProfile).filter(StyleProfile.workspace_id == session.workspace_id).all()
+def list_profiles(db: Session = Depends(get_db), workspace=Depends(get_current_workspace)):
+    profiles = db.query(StyleProfile).filter(StyleProfile.workspace_id == workspace.id).all()
     return {"profiles": [_serialize(p) for p in profiles]}
 
 
 @router.get("/{profile_id}")
-def get_profile(profile_id: str, db: Session = Depends(get_db), session=Depends(get_current_session)):
-    p = _get_or_404(profile_id, session.workspace_id, db)
+def get_profile(profile_id: str, db: Session = Depends(get_db), workspace=Depends(get_current_workspace)):
+    p = _get_or_404(profile_id, workspace.id, db)
     return _serialize(p)
 
 
 @router.put("/{profile_id}/locks")
 def update_locks(profile_id: str, payload: dict, db: Session = Depends(get_db),
-                 session=Depends(get_current_session)):
-    p = _get_or_404(profile_id, session.workspace_id, db)
+                 workspace=Depends(get_current_workspace)):
+    p = _get_or_404(profile_id, workspace.id, db)
     locks = json.loads(p.dimension_locks or "{}")
     locks.update(payload.get("dimension_locks", {}))
     p.dimension_locks = json.dumps(locks)
@@ -59,13 +68,16 @@ def update_locks(profile_id: str, payload: dict, db: Session = Depends(get_db),
 
 @router.post("/{profile_id}/rollback")
 def rollback_profile(profile_id: str, payload: dict, db: Session = Depends(get_db),
-                     session=Depends(get_current_session)):
-    p = _get_or_404(profile_id, session.workspace_id, db)
+                     workspace=Depends(get_current_workspace)):
+    p = _get_or_404(profile_id, workspace.id, db)
     target = payload.get("target_version", 1)
-    if target == 1 and p.genre:
-        p.style_doc = json.dumps(get_genre_centroid(p.genre))
-        p.version = 1
-        db.commit()
+    if target != 1:
+        raise HTTPException(400, "Only rollback to version 1 (genre centroid) is supported")
+    if not p.genre:
+        raise HTTPException(400, "Profile has no genre set — cannot rollback to centroid")
+    p.style_doc = json.dumps(get_genre_centroid(p.genre))
+    p.version = 1
+    db.commit()
     return _serialize(p)
 
 

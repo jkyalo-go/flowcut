@@ -240,7 +240,7 @@ async def _performance_feedback_loop():
         await asyncio.sleep(3600)  # run every hour
         try:
             from services.sie.performance import run_performance_feedback_sweep
-            await asyncio.get_event_loop().run_in_executor(None, run_performance_feedback_sweep)
+            await asyncio.to_thread(run_performance_feedback_sweep)
         except Exception as e:
             logging.warning("Performance feedback loop error: %s", e)
 

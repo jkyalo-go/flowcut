@@ -20,8 +20,8 @@ def run_performance_feedback_sweep():
         slots = (
             db.query(CalendarSlot)
             .filter(
-                CalendarSlot.updated_at <= cutoff,
-                CalendarSlot.status == "monitoring",
+                CalendarSlot.scheduled_at <= cutoff,
+                CalendarSlot.status == "published",
             )
             .limit(50)
             .all()
@@ -98,9 +98,9 @@ def _engagement_to_diff(engagement: float, manifest: dict) -> dict:
         return {}
     diff = {}
     if engagement > 0.7 and manifest.get("transitions"):
-        diff["transitions"] = f"high engagement with {len(manifest['transitions'])} cuts"
+        diff["transitions"] = f"added {len(manifest['transitions'])} cuts (high engagement)"
     if engagement > 0.7 and manifest.get("zooms"):
-        diff["zooms"] = f"high engagement with {len(manifest['zooms'])} zooms"
+        diff["zooms"] = f"added {len(manifest['zooms'])} zooms (high engagement)"
     if engagement < 0.3:
         diff["pacing"] = "low engagement — consider slower cuts"
     return diff

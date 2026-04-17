@@ -166,7 +166,7 @@ def _run_publish_sync(db: Session, job: BackgroundJob, payload: dict) -> None:
     sync_slot_status(db, slot)
 
 
-def _run_performance_feedback_sweep(db: Session, job: BackgroundJob, payload: dict) -> None:
+def _run_performance_feedback_sweep(_db: Session, _job: BackgroundJob, _payload: dict) -> None:
     from services.sie.performance import run_performance_feedback_sweep
     run_performance_feedback_sweep()
 
