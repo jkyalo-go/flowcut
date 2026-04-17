@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from dependencies import get_current_workspace
 from contracts.media import RemixAutoResponse, TimelineItemResponse
 from domain.media import (
     CaptionItem,
@@ -19,6 +20,7 @@ from domain.media import (
 from domain.projects import Project
 from domain.shared import ClipType
 from config import REMIX_DIR
+from routes import require_project
 from routes.timeline import _resolve_item
 from services.remix_generator import (
     find_boundaries,
@@ -103,20 +105,24 @@ def _get_full_timeline_response(db: Session, project_id: str) -> list[TimelineIt
 
 
 @router.get("/{project_id}", response_model=RemixAutoResponse)
-def get_remixes(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+def get_remixes(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     # Return full timeline (frontend replaces its timelineItems)
     return RemixAutoResponse(items=_get_full_timeline_response(db, project_id))
 
 
 @router.post("/{project_id}/auto", response_model=RemixAutoResponse)
-async def auto_generate_remixes(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+async def auto_generate_remixes(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     # First, clear any existing remixes
     _clear_remix_clips(db, project_id)
@@ -169,9 +175,10 @@ async def auto_generate_remixes(project_id: str, db: Session = Depends(get_db)):
 
         remix_duration = _probe_duration(out_path)
 
-        # Create Clip row for the remix
+        # Create Clip row for the remix, stamped with workspace_id
         remix_clip = Clip(
             project_id=project_id,
+            workspace_id=workspace.id,
             source_path=sel["broll_source_path"],
             processed_path=out_path,
             clip_type=ClipType.REMIX,
@@ -285,10 +292,12 @@ def _clear_remix_clips(db: Session, project_id: str):
 
 
 @router.delete("/{project_id}", response_model=RemixAutoResponse)
-def clear_remixes(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+def clear_remixes(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     _clear_remix_clips(db, project_id)
 
