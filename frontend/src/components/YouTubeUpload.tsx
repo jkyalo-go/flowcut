@@ -68,6 +68,7 @@ export function YouTubeUpload() {
   useEffect(() => {
     if (!showConfirm || !project) return;
 
+    let mounted = true;
     let objectUrl: string | null = null;
     const token = getStoredToken();
 
@@ -79,14 +80,16 @@ export function YouTubeUpload() {
         return res.blob();
       })
       .then((blob) => {
+        if (!mounted) return;
         objectUrl = URL.createObjectURL(blob);
         setPreviewUrl(objectUrl);
       })
       .catch(() => {
-        setPreviewUrl(null);
+        if (mounted) setPreviewUrl(null);
       });
 
     return () => {
+      mounted = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setPreviewUrl(null);
     };
@@ -168,8 +171,8 @@ export function YouTubeUpload() {
         thumbnail_index: thumbnailIndices[0] ?? null,
       });
       // Progress comes via WebSocket → youtubeUploadProgress in store
-    } catch (e: any) {
-      setUploadError(e.message || "Upload failed");
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
       setUploading(false);
     }
   };

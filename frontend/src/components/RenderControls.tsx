@@ -30,8 +30,8 @@ export function RenderControls() {
     setRenderProgress(0, "starting");
     try {
       await api.post(`/api/render/${project.id}`);
-    } catch (e: any) {
-      setRenderError(e.message || "Render failed to start");
+    } catch (e) {
+      setRenderError(e instanceof Error ? e.message : "Render failed to start");
       setRenderProgress(null);
     }
   };
@@ -51,8 +51,8 @@ export function RenderControls() {
       a.download = `${project.name || project.id}_render.mp4`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e: any) {
-      setRenderError(e.message || "Download failed");
+    } catch (e) {
+      setRenderError(e instanceof Error ? e.message : "Download failed");
     }
   };
 
@@ -60,12 +60,14 @@ export function RenderControls() {
     if (!project) return;
     try {
       await api.post(`/api/render/${project.id}/reveal`);
-    } catch (e: any) {
-      setRenderError(e.message || "Could not reveal file in Finder");
+    } catch (e) {
+      setRenderError(e instanceof Error ? e.message : "Could not reveal file in Finder");
     }
   };
 
   const handleDismiss = () => {
+    // Marks the project as having a render so hasRender stays true after dismissal.
+    // The real server-side render_path is fetched on next project open.
     setProject({ ...project, render_path: `project_${project.id}_render.mp4` });
     setRenderProgress(null);
     setRenderError(null);
