@@ -15,7 +15,7 @@ def test_run_scene_detection_returns_list(tmp_path):
     fake_scene = [(scene0_start, scene0_end), (scene1_start, scene1_end)]
     with patch("services.sie.workers.detect", return_value=fake_scene):
         from services.sie.workers import run_scene_detection
-        result = asyncio.get_event_loop().run_until_complete(run_scene_detection("/fake/video.mp4"))
+        result = asyncio.run(run_scene_detection("/fake/video.mp4"))
     assert len(result) == 2
     assert result[0]["start_sec"] == 0.0
     assert result[1]["end_sec"] == 12.3
@@ -32,15 +32,15 @@ def test_run_transcription_uses_singleton():
     )
     with patch("services.sie.workers.WhisperModel", return_value=fake_model) as mock_cls:
         from services.sie.workers import run_transcription
-        asyncio.get_event_loop().run_until_complete(run_transcription("/fake/video.mp4"))
-        asyncio.get_event_loop().run_until_complete(run_transcription("/fake/video.mp4"))
+        asyncio.run(run_transcription("/fake/video.mp4"))
+        asyncio.run(run_transcription("/fake/video.mp4"))
     mock_cls.assert_called_once()
 
 
 def test_run_gemini_visual_scoring_returns_empty_without_api_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     from services.sie.workers import run_gemini_visual_scoring
-    result = asyncio.get_event_loop().run_until_complete(run_gemini_visual_scoring("/fake/video.mp4"))
+    result = asyncio.run(run_gemini_visual_scoring("/fake/video.mp4"))
     assert result == []
 
 
@@ -53,6 +53,6 @@ def test_run_all_workers_tolerates_worker_failure():
          patch("services.sie.workers.run_transcription", return_value={"text": "", "segments": []}), \
          patch("services.sie.workers.run_gemini_visual_scoring", return_value=[]):
         from services.sie.workers import run_all_workers
-        result = asyncio.get_event_loop().run_until_complete(run_all_workers("/fake/video.mp4"))
+        result = asyncio.run(run_all_workers("/fake/video.mp4"))
     assert result["scenes"] == []
     assert result["transcript"] == {"text": "", "segments": []}

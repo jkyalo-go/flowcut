@@ -1,8 +1,11 @@
 from __future__ import annotations
 import asyncio
 import json
+import logging
 import os
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     from scenedetect import detect, ContentDetector
@@ -25,6 +28,8 @@ _whisper_model = None
 
 def _get_whisper_model():
     global _whisper_model
+    if not _WHISPER_AVAILABLE:
+        raise RuntimeError("faster-whisper is not installed")
     if _whisper_model is None:
         _whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
     return _whisper_model
@@ -32,6 +37,9 @@ def _get_whisper_model():
 
 async def run_scene_detection(video_path: str) -> list[dict]:
     """CPU-only scene boundary detection via PySceneDetect."""
+    if not _SCENEDETECT_AVAILABLE:
+        logger.warning("scenedetect not installed — scene detection skipped")
+        return []
     scenes = detect(video_path, ContentDetector(threshold=27.0))
     return [
         {"start_sec": round(s[0].get_seconds(), 2), "end_sec": round(s[1].get_seconds(), 2)}

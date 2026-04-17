@@ -33,7 +33,7 @@ def test_synthesis_falls_back_to_evenly_spaced_when_no_visual():
     from services.sie.graph import _synthesis_node
     state = _make_state(footage_duration_sec=90.0)
     with patch("services.sie.graph.memory.retrieve_episodic_context", return_value=[]):
-        result = asyncio.get_event_loop().run_until_complete(_synthesis_node(state))
+        result = asyncio.run(_synthesis_node(state))
     assert len(result["ranked_moments"]) == 3
     assert result["ranked_moments"][0]["type"] == "segment"
 
@@ -70,6 +70,6 @@ def test_planning_node_records_error_when_workspace_missing():
         mock_db = MagicMock()
         mock_db.query.return_value.filter.return_value.first.return_value = None
         mock_sl.return_value = mock_db
-        result = asyncio.get_event_loop().run_until_complete(_planning_node(state))
+        result = asyncio.run(_planning_node(state))
     assert result["edit_manifest"] is None
     assert any("not found" in e for e in result["errors"])

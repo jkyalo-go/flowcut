@@ -67,8 +67,9 @@ async def _synthesis_node(state: SIEState) -> dict:
 
 async def _planning_node(state: SIEState) -> dict:
     from domain.identity import Workspace
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         workspace = db.query(Workspace).filter(Workspace.id == state["workspace_id"]).first()
         if not workspace:
             return {"errors": [f"workspace {state['workspace_id']} not found"], "edit_manifest": None}
@@ -95,7 +96,8 @@ async def _planning_node(state: SIEState) -> dict:
     except Exception as e:
         return {"errors": [f"planning failed: {e}"], "edit_manifest": None}
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 def _gate_node(state: SIEState) -> dict:

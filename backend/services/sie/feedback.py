@@ -1,6 +1,6 @@
 from __future__ import annotations
 import copy
-import json
+from services.sie.cold_start import GENRE_CENTROIDS
 
 
 def diff_manifests(original: dict, modified: dict) -> dict:
@@ -59,7 +59,6 @@ def apply_feedback_to_profile(
                 cur = updated["pacing"].get("cuts_per_min", 10)
                 new_val = round(cur * 1.05, 1)
                 genre = profile.get("genre", "general")
-                from services.sie.cold_start import GENRE_CENTROIDS
                 genre_max = GENRE_CENTROIDS.get(genre, {}).get("max_cuts_per_min", 30)
                 updated["pacing"]["cuts_per_min"] = min(new_val, round(genre_max * 1.5, 1))
 
