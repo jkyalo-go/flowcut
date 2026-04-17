@@ -20,6 +20,8 @@ export default function LoginPage() {
     try {
       const data = await api.get<{ redirect_url: string; state: string }>('/api/auth/oauth/google/start')
       window.location.assign(data.redirect_url)
+      // Reset loading if navigation doesn't happen (e.g. bfcache restore)
+      setTimeout(() => setLoading(false), 500)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to start login')
       setLoading(false)

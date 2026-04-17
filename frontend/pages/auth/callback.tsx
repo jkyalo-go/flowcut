@@ -18,6 +18,10 @@ export default function AuthCallbackPage() {
       setError('Missing OAuth parameters')
       return
     }
+    if (typeof code !== 'string' || typeof state !== 'string') {
+      setError('Malformed OAuth parameters')
+      return
+    }
 
     async function handleCallback() {
       try {
