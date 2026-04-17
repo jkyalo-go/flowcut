@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -22,7 +23,6 @@ def _get_setting(db: Session, key: str, workspace_id: str | None = None) -> str:
 
 
 def _set_setting(db: Session, key: str, value: str, workspace_id: str | None = None) -> None:
-    from sqlalchemy.exc import IntegrityError
     query = db.query(AppSettings).filter(AppSettings.key == key)
     if workspace_id is not None:
         query = query.filter(AppSettings.workspace_id == workspace_id)
