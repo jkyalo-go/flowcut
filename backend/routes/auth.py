@@ -1,7 +1,9 @@
 import os
+import secrets
 from datetime import datetime, timedelta
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -108,12 +110,15 @@ async def google_oauth_callback(payload: dict, db: Session = Depends(get_db)):
         _oauth_svc.verify_state_token(SECRET_KEY, state)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state token")
-    user_info = await _oauth_svc.exchange_google_code(
-        code=code,
-        redirect_uri=GOOGLE_REDIRECT_URI,
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
-    )
+    try:
+        user_info = await _oauth_svc.exchange_google_code(
+            code=code,
+            redirect_uri=GOOGLE_REDIRECT_URI,
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+        )
+    except httpx.HTTPStatusError:
+        raise HTTPException(status_code=400, detail="Google token exchange failed")
 
     email = user_info["email"]
     oauth_id = user_info["sub"]
@@ -130,7 +135,8 @@ async def google_oauth_callback(payload: dict, db: Session = Depends(get_db)):
         db.add(user)
         db.flush()
         # Create default workspace for new users
-        slug = email.split("@")[0].lower().replace(".", "-")
+        base_slug = email.split("@")[0].lower().replace(".", "-")
+        slug = f"{base_slug}-{secrets.token_hex(3)}"
         ws = Workspace(name=f"{user.name}'s Workspace", slug=slug, plan_tier="starter",
                        storage_quota_mb=10240, raw_retention_days=7)
         db.add(ws)
@@ -142,6 +148,10 @@ async def google_oauth_callback(payload: dict, db: Session = Depends(get_db)):
               .join(Membership, Membership.workspace_id == Workspace.id)
               .filter(Membership.user_id == user.id)
               .first())
+        if ws is None:
+            raise HTTPException(status_code=422, detail="User has no workspace.")
+        user.oauth_provider = "google"
+        user.oauth_id = oauth_id
 
     token = str(uuid4())
     session = AuthSession(

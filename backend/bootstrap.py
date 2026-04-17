@@ -85,7 +85,13 @@ def _bootstrap_database():
         for table in ["timeline_items", "assets", "music_items", "title_items", "caption_items", "timestamp_items", "tracker_items", "subscribe_items"]:
             _ensure_columns(conn, table, [("workspace_id", "VARCHAR(36)", None)])
         _ensure_columns(conn, "app_settings", [("workspace_id", "VARCHAR(36)", None)])
-        _ensure_columns(conn, "users", [("user_type", "VARCHAR", "'user'")])
+        _ensure_columns(conn, "users", [
+            ("user_type", "VARCHAR", "'user'"),
+            ("oauth_provider", "VARCHAR", None),
+            ("oauth_id", "VARCHAR", None),
+            ("avatar_url", "VARCHAR", None),
+        ])
+        _ensure_columns(conn, "auth_sessions", [("expires_at", "DATETIME", None)])
         _ensure_columns(conn, "workspaces", [("lifecycle_status", "VARCHAR", "'trial'")])
         _ensure_columns(conn, "calendar_slots", [
             ("render_variant", "VARCHAR", None),

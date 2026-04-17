@@ -1,22 +1,14 @@
 import httpx
 from itsdangerous import URLSafeTimedSerializer
 
-_SIGNER = None
-
-def _get_signer(secret_key: str) -> URLSafeTimedSerializer:
-    global _SIGNER
-    if _SIGNER is None:
-        _SIGNER = URLSafeTimedSerializer(secret_key)
-    return _SIGNER
-
 
 def generate_state_token(secret_key: str, workspace_id: str | None = None) -> str:
-    s = _get_signer(secret_key)
+    s = URLSafeTimedSerializer(secret_key)
     return s.dumps({"ws": workspace_id or ""})
 
 
 def verify_state_token(secret_key: str, token: str, max_age: int = 600) -> dict:
-    s = _get_signer(secret_key)
+    s = URLSafeTimedSerializer(secret_key)
     return s.loads(token, max_age=max_age)
 
 
