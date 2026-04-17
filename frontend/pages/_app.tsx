@@ -5,21 +5,23 @@ import { useRouter } from 'next/router'
 import '@/styles/globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useAuthStore } from '@/stores/authStore'
-import { api, ApiError } from '@/lib/api'
+import { api, ApiError, storeToken } from '@/lib/api'
 import type { User, Workspace } from '@/types'
 
-const PUBLIC_PATHS = ['/login', '/invitations']
+const PUBLIC_PATHS = ['/login', '/invitations', '/auth']
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
-  const { user, isLoading, setUser, setWorkspace, setLoading } = useAuthStore()
+  const { user, isLoading, setUser, setWorkspace, setToken, setLoading } = useAuthStore()
 
   useEffect(() => {
     async function bootstrap() {
       try {
-        const data = await api.get<{ user: User; workspace: Workspace }>('/api/auth/me')
+        const data = await api.get<{ token: string; user: User; workspace: Workspace }>('/api/auth/me')
         setUser(data.user)
         setWorkspace(data.workspace)
+        storeToken(data.token)
+        setToken(data.token)
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) {
           console.error('[bootstrap] auth check failed:', e)

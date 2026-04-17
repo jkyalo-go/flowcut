@@ -1,5 +1,20 @@
 // frontend/src/lib/api.ts
 
+const TOKEN_KEY = 'flowcut_token'
+
+export function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function storeToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message)
@@ -8,6 +23,8 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getStoredToken()
+  const authHeaders: HeadersInit = token ? { 'X-FlowCut-Token': token } : {}
   const contentTypeHeaders: HeadersInit = init.body instanceof FormData
     ? {}
     : { 'Content-Type': 'application/json' }
@@ -15,6 +32,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     credentials: 'include',
     headers: {
+      ...authHeaders,
       ...contentTypeHeaders,
       ...(init.headers ?? {}),
     },
