@@ -32,7 +32,7 @@ def db(engine):
 
     @event.listens_for(session, "after_transaction_end")
     def restart_savepoint(session, tx):
-        if tx.nested and not tx._parent.nested:
+        if tx.nested and not tx.parent.nested:
             connection.begin_nested()
 
     try:
