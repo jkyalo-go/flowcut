@@ -6,16 +6,12 @@ from contracts.media import ClipResponse
 class ProjectCreate(BaseModel):
     workspace_id: str
     name: str
-    intake_mode: str = "upload"
-    watch_directory: str | None = None
 
 
 class ProjectResponse(BaseModel):
     id: str
     workspace_id: str
     name: str
-    watch_directory: str | None
-    intake_mode: str
     clips: list[ClipResponse]
     selected_title: str | None = None
     video_description: str | None = None

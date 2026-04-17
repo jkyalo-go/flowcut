@@ -12,7 +12,7 @@ const DEFAULT_DESC_PROMPT =
 
 export function ProjectList() {
   const {
-    setProject, setClips, setTimelineItems, setIsWatching, setScanningFiles,
+    setProject, setClips, setTimelineItems,
     setSelectedTitle, setVideoDescription, setVideoTags,
     setVideoCategory, setVideoVisibility, setSelectedThumbnailIndices, setDescSystemPrompt,
     setThumbnailUrls, setThumbnailText,
@@ -28,9 +28,7 @@ export function ProjectList() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
-  const [dir, setDir] = useState("");
   const [creating, setCreating] = useState(false);
-  const [browsing, setBrowsing] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -109,37 +107,17 @@ export function ProjectList() {
       .then((data) => {
         if (data) setSubscribeItems(data.items || []);
       });
-    setIsWatching(true);
-    // Start watching in background — new clips arrive via websocket
-    setScanningFiles(true);
-    fetch(`/api/projects/${id}/watch/start`, { method: "POST" })
-      .then((r) => r.json())
-      .then((data) => { if (data.clips?.length) setClips(data.clips); })
-      .finally(() => setScanningFiles(false));
-  };
-
-  const browse = async () => {
-    setBrowsing(true);
-    try {
-      const res = await fetch("/api/fs/pick-folder");
-      const data = await res.json();
-      if (data.path && !data.cancelled) {
-        setDir(data.path.replace(/\/$/, ""));
-      }
-    } catch {} finally {
-      setBrowsing(false);
-    }
   };
 
   const createProject = async () => {
-    if (!name.trim() || !dir.trim()) return;
+    if (!name.trim()) return;
     setCreating(true);
     setError("");
     try {
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), watch_directory: dir.trim() }),
+        body: JSON.stringify({ name: name.trim() }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -170,13 +148,6 @@ export function ProjectList() {
       setProject(proj);
       setClips([]);
       setTimelineItems([]);
-      setIsWatching(true);
-      // Start watching in background — clips arrive via websocket
-      setScanningFiles(true);
-      fetch(`/api/projects/${proj.id}/watch/start`, { method: "POST" })
-        .then((r) => r.json())
-        .then((data) => { if (data.clips?.length) setClips(data.clips); })
-        .finally(() => setScanningFiles(false));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -211,7 +182,6 @@ export function ProjectList() {
                 x
               </button>
             </div>
-            <span className="project-card-dir">{p.watch_directory}</span>
             <span className="project-card-clips">{p.clips.length} clips</span>
           </div>
         ))}
@@ -229,18 +199,6 @@ export function ProjectList() {
               onChange={(e) => setName(e.target.value)}
               autoFocus
             />
-            <div className="folder-input-row">
-              <input
-                type="text"
-                placeholder="Watch folder"
-                value={dir}
-                onChange={(e) => setDir(e.target.value)}
-                readOnly={browsing}
-              />
-              <button className="btn btn-ghost" onClick={browse} disabled={browsing}>
-                {browsing ? "..." : "Browse"}
-              </button>
-            </div>
             <div className="btn-row">
               <button className="btn btn-primary" onClick={createProject} disabled={creating}>
                 {creating ? "Creating..." : "Create"}

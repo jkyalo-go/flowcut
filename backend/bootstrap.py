@@ -9,7 +9,6 @@ try:
     from .config import ASSETS_DIR, DATA_DIR, PROCESSED_DIR, REMIX_DIR, STORAGE_DIR, UPLOAD_TMP_DIR
     from . import domain  # noqa: F401
     from .services.background_jobs import ensure_due_publish_jobs, process_available_jobs
-    from .services.watcher import set_queue
     from .workers.queue import process_worker, processing_queue
 except ImportError:
     from database import Base, engine
@@ -17,7 +16,6 @@ except ImportError:
     from config import ASSETS_DIR, DATA_DIR, PROCESSED_DIR, REMIX_DIR, STORAGE_DIR, UPLOAD_TMP_DIR
     import domain  # noqa: F401
     from services.background_jobs import ensure_due_publish_jobs, process_available_jobs
-    from services.watcher import set_queue
     from workers.queue import process_worker, processing_queue
 
 logging.basicConfig(level=logging.INFO)
@@ -299,7 +297,6 @@ async def lifespan(_app):
     UPLOAD_TMP_DIR.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
     _bootstrap_database()
-    set_queue(processing_queue)
     task = asyncio.create_task(process_worker())
     scheduler_task = asyncio.create_task(_platform_scheduler())
     perf_task = asyncio.create_task(_performance_feedback_loop())

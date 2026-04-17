@@ -1,8 +1,3 @@
-# NOTE: Intentionally unauthenticated. This module exposes local filesystem
-# utilities (folder picker, file listing) that operate on the server's local
-# disk — not tenant data. Do not add tenant-specific data access here.
-import asyncio
-import json
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -10,27 +5,6 @@ from fastapi.responses import FileResponse
 from services.storage import download_to_temp, resolve_storage_path, signed_url_for
 
 router = APIRouter()
-
-
-@router.get("/pick-folder")
-async def pick_folder():
-    script = """
-import subprocess, sys, json
-result = subprocess.run(
-    ["osascript", "-e", 'POSIX path of (choose folder with prompt "Select folder to watch")'],
-    capture_output=True, text=True, timeout=120
-)
-path = result.stdout.strip()
-print(json.dumps({"path": path, "cancelled": not bool(path)}))
-"""
-    proc = await asyncio.create_subprocess_exec(
-        "python3", "-c", script,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, _ = await proc.communicate()
-    data = json.loads(stdout.decode())
-    return data
 
 
 @router.get("/serve-video")

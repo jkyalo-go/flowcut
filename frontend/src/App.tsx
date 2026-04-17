@@ -18,7 +18,6 @@ import "./App.css";
 function App() {
   const project = useTimelineStore((s) => s.project);
   const setProject = useTimelineStore((s) => s.setProject);
-  const setIsWatching = useTimelineStore((s) => s.setIsWatching);
   const [showSettings, setShowSettings] = useState(false);
   useWebSocket(project?.id ?? null);
   useAutoSaveMetadata();
@@ -57,15 +56,10 @@ function App() {
         <h1>Boost Vlog</h1>
         <div className="header-project">
           <span className="header-project-name">{project.name}</span>
-          <span className="header-project-dir">{project.watch_directory}</span>
-          <WatchToggle />
           <SaveIndicator />
           <button
             className="btn btn-ghost"
-            onClick={() => {
-              setProject(null);
-              setIsWatching(false);
-            }}
+            onClick={() => setProject(null)}
           >
             Back to Projects
           </button>
@@ -88,30 +82,6 @@ function App() {
         </div>
       </main>
     </div>
-  );
-}
-
-function WatchToggle() {
-  const project = useTimelineStore((s) => s.project);
-  const isWatching = useTimelineStore((s) => s.isWatching);
-  const setIsWatching = useTimelineStore((s) => s.setIsWatching);
-
-  const toggle = async () => {
-    if (!project) return;
-    const action = isWatching ? "stop" : "start";
-    await fetch(`/api/projects/${project.id}/watch/${action}`, { method: "POST" });
-    setIsWatching(!isWatching);
-  };
-
-  return (
-    <button
-      className={`watch-toggle ${isWatching ? "on" : "off"}`}
-      onClick={toggle}
-      title={isWatching ? "Watching folder" : "Not watching folder"}
-    >
-      <span className="watch-toggle-dot" />
-      <span className="watch-toggle-label">{isWatching ? "Watching" : "Paused"}</span>
-    </button>
   );
 }
 

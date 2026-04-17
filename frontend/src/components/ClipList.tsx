@@ -21,45 +21,18 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function ClipList() {
   const clips = useTimelineStore((s) => s.clips);
-  const scanningFiles = useTimelineStore((s) => s.scanningFiles);
-  const scanProgress = useTimelineStore((s) => s.scanProgress);
-
-  if (clips.length === 0 && scanningFiles) {
-    const pct = scanProgress ? Math.round((scanProgress.current / scanProgress.total) * 100) : 0;
-    return (
-      <div className="clip-list empty">
-        <p>Scanning files and sorting by recording time...</p>
-        {scanProgress && (
-          <div className="scan-progress">
-            <div className="clip-progress-bar">
-              <div
-                className="clip-progress-fill"
-                style={{ width: `${pct}%`, backgroundColor: "#3b82f6" }}
-              />
-            </div>
-            <div className="clip-progress-info">
-              <span className="clip-progress-detail">
-                {scanProgress.filename || `${scanProgress.current}/${scanProgress.total}`}
-              </span>
-              <span className="clip-progress-pct">{scanProgress.current}/{scanProgress.total}</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   if (clips.length === 0) {
     return (
       <div className="clip-list empty">
-        <p>No clips yet. Start watching a folder and drop some videos in.</p>
+        <p>No clips yet. Upload a video to get started.</p>
       </div>
     );
   }
 
   return (
     <div className="clip-list">
-      <h3>Clips ({clips.length}){scanningFiles && " — scanning..."}</h3>
+      <h3>Clips ({clips.length})</h3>
       <div className="clip-items">
         {clips.map((clip) => (
           <ClipCard key={clip.id} clip={clip} />

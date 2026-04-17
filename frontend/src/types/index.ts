@@ -1,7 +1,6 @@
 export interface Project {
   id: number;
   name: string;
-  watch_directory: string;
   clips: Clip[];
   selected_title: string | null;
   video_description: string | null;

@@ -57,20 +57,6 @@ export function useWebSocket(projectId: number | null) {
           refreshTimeline(projectId);
           break;
 
-        case "scan_progress":
-          if (msg.data.stage === "done") {
-            store.setScanProgress(null);
-            store.setScanningFiles(false);
-          } else {
-            store.setScanningFiles(true);
-            store.setScanProgress({
-              current: msg.data.current as number,
-              total: msg.data.total as number,
-              filename: msg.data.filename as string | undefined,
-            });
-          }
-          break;
-
         case "render_progress":
           store.setRenderProgress(
             msg.data.percent as number,
