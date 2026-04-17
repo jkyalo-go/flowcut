@@ -1,8 +1,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import ReviewQueuePage from '@pages/review-queue'
-import { vi, beforeEach } from 'vitest'
+import { vi, beforeEach, afterEach } from 'vitest'
 import * as apiModule from '@/lib/api'
-import * as timelineStore from '@/stores/timelineStore'
 
 vi.mock('next/router', () => ({
   useRouter: () => ({ pathname: '/review-queue', replace: vi.fn() }),
@@ -16,6 +15,8 @@ vi.mock('@/stores/timelineStore', () => ({
 }))
 
 describe('ReviewQueuePage', () => {
+  afterEach(() => vi.restoreAllMocks())
+
   beforeEach(() => {
     vi.spyOn(apiModule.api, 'get').mockImplementation((path: string) => {
       if (path.includes('settings')) return Promise.resolve({ autonomy_mode: 'supervised', autonomy_confidence_threshold: 0.8 })
@@ -46,5 +47,6 @@ describe('ReviewQueuePage', () => {
     await waitFor(() => screen.getByText('Cool clip'))
     fireEvent.click(screen.getByRole('button', { name: /approve/i }))
     await waitFor(() => expect(screen.getByText('Cool clip')).toBeInTheDocument())
+    expect(screen.getByText(/network error/i)).toBeInTheDocument()
   })
 })

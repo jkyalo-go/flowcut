@@ -37,6 +37,7 @@ export default function ReviewQueuePage() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [corrections, setCorrections] = useState<Record<string, string>>({})
   const [savingSettings, setSavingSettings] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const mounted = useRef(true)
 
@@ -97,18 +98,22 @@ export default function ReviewQueuePage() {
     api.post(`/api/autonomy/review-queue/${clipId}/${action}`, body).catch((err) => {
       // Restore item on error
       setQueue((prev) => [item, ...prev])
-      setActionError(err?.message ?? 'Action failed')
+      setActionError(err instanceof Error ? err.message : 'Action failed')
     })
   }
 
   function saveSettings() {
     setSavingSettings(true)
+    setSaveError(null)
     api.post<AutonomySettings>('/api/autonomy/settings', settings)
       .then((updated) => {
         setSettings(updated)
         setSavingSettings(false)
       })
-      .catch(() => setSavingSettings(false))
+      .catch((err) => {
+        setSavingSettings(false)
+        setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
+      })
   }
 
   function testNotification() {
@@ -258,6 +263,12 @@ export default function ReviewQueuePage() {
                   }
                 />
               </div>
+
+              {saveError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{saveError}</AlertDescription>
+                </Alert>
+              )}
 
               <Separator />
 
