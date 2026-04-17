@@ -235,6 +235,16 @@ def _seed_defaults(conn):
     conn.commit()
 
 
+async def _performance_feedback_loop():
+    while True:
+        await asyncio.sleep(3600)  # run every hour
+        try:
+            from services.sie.performance import run_performance_feedback_sweep
+            await asyncio.get_event_loop().run_in_executor(None, run_performance_feedback_sweep)
+        except Exception as e:
+            logging.warning("Performance feedback loop error: %s", e)
+
+
 async def _platform_scheduler():
     while True:
         def _run_cycle():
@@ -265,14 +275,20 @@ async def lifespan(_app):
     set_queue(processing_queue)
     task = asyncio.create_task(process_worker())
     scheduler_task = asyncio.create_task(_platform_scheduler())
+    perf_task = asyncio.create_task(_performance_feedback_loop())
     yield
     task.cancel()
     scheduler_task.cancel()
+    perf_task.cancel()
     try:
         await task
     except asyncio.CancelledError:
         pass
     try:
         await scheduler_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await perf_task
     except asyncio.CancelledError:
         pass
