@@ -224,6 +224,7 @@ export interface ReviewQueueItem {
   status: string
   edit_confidence: number
   created_at: string
+  thumbnail_urls?: string[]
 }
 
 export interface AutonomySettings {
