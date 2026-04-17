@@ -31,6 +31,9 @@ class User(Base):
     email = Column(String, nullable=False, unique=True)
     name = Column(String, nullable=False)
     user_type = Column(String, nullable=False, default="user")
+    oauth_provider = Column(String, nullable=True)   # 'google', 'discord', 'twitch'
+    oauth_id = Column(String, nullable=True)         # provider's user ID
+    avatar_url = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     __mapper_args__ = {
@@ -65,6 +68,7 @@ class AuthSession(Base):
     user_id = Column(UUID_SQL_TYPE, ForeignKey("users.id"), nullable=False)
     workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=False)
     token = Column(String, nullable=False, unique=True)
+    expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     user = relationship("User")

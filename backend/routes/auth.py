@@ -1,6 +1,8 @@
+import os
+from datetime import datetime, timedelta
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -9,6 +11,12 @@ from contracts.identity import DevLoginRequest, SessionResponse, UserResponse, W
 from domain.enterprise import OnboardingState, QuotaPolicy, SubscriptionPlan, WorkspaceSubscription
 from domain.identity import AuthSession, Membership, User, Workspace
 from domain.shared import SubscriptionStatus
+import services.oauth as _oauth_svc
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:3000/auth/callback/google")
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
 
 router = APIRouter()
 
@@ -73,3 +81,80 @@ def me(session: AuthSession = Depends(get_current_session), db: Session = Depend
         user=UserResponse.model_validate(user),
         workspace=WorkspaceResponse.model_validate(workspace),
     )
+
+
+@router.get("/oauth/google/start")
+async def google_oauth_start():
+    state = _oauth_svc.generate_state_token(SECRET_KEY)
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+        "state": state,
+    }
+    from urllib.parse import urlencode
+    redirect_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
+    return {"redirect_url": redirect_url, "state": state}
+
+
+@router.post("/oauth/google/callback")
+async def google_oauth_callback(payload: dict, db: Session = Depends(get_db)):
+    code = payload.get("code", "")
+    state = payload.get("state", "")
+    try:
+        _oauth_svc.verify_state_token(SECRET_KEY, state)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state token")
+    user_info = await _oauth_svc.exchange_google_code(
+        code=code,
+        redirect_uri=GOOGLE_REDIRECT_URI,
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+    )
+
+    email = user_info["email"]
+    oauth_id = user_info["sub"]
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            name=user_info.get("name", email.split("@")[0]),
+            oauth_provider="google",
+            oauth_id=oauth_id,
+            avatar_url=user_info.get("picture"),
+        )
+        db.add(user)
+        db.flush()
+        # Create default workspace for new users
+        slug = email.split("@")[0].lower().replace(".", "-")
+        ws = Workspace(name=f"{user.name}'s Workspace", slug=slug, plan_tier="starter",
+                       storage_quota_mb=10240, raw_retention_days=7)
+        db.add(ws)
+        db.flush()
+        db.add(Membership(workspace_id=ws.id, user_id=user.id, role="owner"))
+        db.flush()
+    else:
+        ws = (db.query(Workspace)
+              .join(Membership, Membership.workspace_id == Workspace.id)
+              .filter(Membership.user_id == user.id)
+              .first())
+
+    token = str(uuid4())
+    session = AuthSession(
+        user_id=user.id,
+        workspace_id=ws.id,
+        token=token,
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    )
+    db.add(session)
+    db.commit()
+
+    return {
+        "token": token,
+        "workspace_id": str(ws.id),
+        "user": {"id": str(user.id), "email": user.email, "name": user.name},
+    }

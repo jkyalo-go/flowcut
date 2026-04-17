@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
@@ -26,6 +28,8 @@ def get_current_session(
     session = db.query(AuthSession).filter(AuthSession.token == token).first()
     if not session:
         raise HTTPException(401, "Invalid session token")
+    if session.expires_at and session.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=401, detail="Session expired")
     return session
 
 
