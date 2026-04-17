@@ -8,7 +8,7 @@ from urllib.parse import quote
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import TimelineItem, MusicItem, Asset, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem
+from domain.media import Asset, CaptionItem, MusicItem, SubscribeItem, TimelineItem, TimestampItem, TitleItem, TrackerItem
 from routes.ws import broadcast
 from services.ducker import compute_volume_envelope
 from services.sfx_generator import TITLE_IN_PATH, TITLE_OUT_PATH, ensure_title_sfx
@@ -152,7 +152,7 @@ def _build_input_props(
     }
 
 
-async def render_timeline(project_id: int, output_path: str) -> str:
+async def render_timeline(project_id: str, output_path: str) -> str:
     db: Session = SessionLocal()
     try:
         items = (

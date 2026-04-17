@@ -8,8 +8,10 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import google.auth.transport.requests
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
-from models import YouTubeCredential
+from domain.platforms import PlatformConnection
+from domain.shared import PlatformType
 from config import (
     YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI, PROCESSED_DIR,
 )
@@ -35,7 +37,7 @@ CLIENT_CONFIG = {
 _pending_flow: Flow | None = None
 
 
-def get_auth_url() -> str:
+def get_auth_url(state: str | None = None) -> str:
     global _pending_flow
     if not YOUTUBE_CLIENT_ID or not YOUTUBE_CLIENT_SECRET:
         raise RuntimeError("YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET must be set")
@@ -47,11 +49,12 @@ def get_auth_url() -> str:
         access_type="offline",
         prompt="consent",
         include_granted_scopes="true",
+        state=state,
     )
     return auth_url
 
 
-def exchange_code(code: str, db: Session) -> str:
+def exchange_code(code: str, db: Session, workspace_id: str | None = None) -> str:
     global _pending_flow
     if not _pending_flow:
         raise RuntimeError("No pending auth flow. Start auth first.")
@@ -73,9 +76,19 @@ def exchange_code(code: str, db: Session) -> str:
         logger.warning(f"Could not fetch channel name: {e}")
 
     # Upsert credentials — delete any existing, insert new
-    db.query(YouTubeCredential).delete()
-    cred = YouTubeCredential(
-        channel_name=channel_name,
+    db.query(PlatformConnection).filter(
+        PlatformConnection.platform == PlatformType.YOUTUBE
+    ).delete()
+    if workspace_id is None:
+        workspace = db.execute(text("SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1")).fetchone()
+        if workspace is None:
+            raise RuntimeError("No workspace available for YouTube connection")
+        workspace_id = workspace[0]
+
+    cred = PlatformConnection(
+        workspace_id=workspace_id,
+        platform=PlatformType.YOUTUBE,
+        account_name=channel_name,
         access_token=creds.token,
         refresh_token=creds.refresh_token,
         token_expiry=creds.expiry,
@@ -87,8 +100,13 @@ def exchange_code(code: str, db: Session) -> str:
     return channel_name or "Unknown Channel"
 
 
-def get_credentials(db: Session) -> Credentials | None:
-    row = db.query(YouTubeCredential).first()
+def get_credentials(db: Session, workspace_id: str | None = None, connection: PlatformConnection | None = None) -> Credentials | None:
+    row = connection
+    if row is None:
+        query = db.query(PlatformConnection).filter(PlatformConnection.platform == PlatformType.YOUTUBE)
+        if workspace_id is not None:
+            query = query.filter(PlatformConnection.workspace_id == workspace_id)
+        row = query.first()
     if not row:
         return None
 
@@ -116,21 +134,25 @@ def get_credentials(db: Session) -> Credentials | None:
     return creds
 
 
-def get_auth_status(db: Session) -> dict:
-    row = db.query(YouTubeCredential).first()
+def get_auth_status(db: Session, workspace_id: str | None = None) -> dict:
+    query = db.query(PlatformConnection).filter(PlatformConnection.platform == PlatformType.YOUTUBE)
+    if workspace_id is not None:
+        query = query.filter(PlatformConnection.workspace_id == workspace_id)
+    row = query.first()
     if not row:
         return {"authenticated": False, "channel_name": None}
 
     # Check if credentials are still usable
-    creds = get_credentials(db)
+    creds = get_credentials(db, workspace_id=workspace_id, connection=row)
     if creds is None:
         return {"authenticated": False, "channel_name": None}
 
-    return {"authenticated": True, "channel_name": row.channel_name}
+    return {"authenticated": True, "channel_name": row.account_name}
 
 
 def upload_video(
-    project_id: int,
+    project_id: str,
+    workspace_id: str,
     title: str,
     description: str,
     tags: list[str],
@@ -138,9 +160,10 @@ def upload_video(
     privacy_status: str,
     thumbnail_index: int | None,
     db: Session,
+    connection: PlatformConnection | None = None,
     progress_callback: Callable[[int], None] | None = None,
 ) -> str:
-    creds = get_credentials(db)
+    creds = get_credentials(db, workspace_id=workspace_id, connection=connection)
     if creds is None:
         raise RuntimeError("Not authenticated with YouTube. Connect your account first.")
 
@@ -212,8 +235,11 @@ def upload_video(
     return video_id
 
 
-def revoke_credentials(db: Session):
-    row = db.query(YouTubeCredential).first()
+def revoke_credentials(db: Session, workspace_id: str | None = None):
+    query = db.query(PlatformConnection).filter(PlatformConnection.platform == PlatformType.YOUTUBE)
+    if workspace_id is not None:
+        query = query.filter(PlatformConnection.workspace_id == workspace_id)
+    row = query.first()
     if row:
         try:
             import requests
@@ -224,6 +250,9 @@ def revoke_credentials(db: Session):
             )
         except Exception as e:
             logger.warning(f"Token revocation failed: {e}")
-        db.query(YouTubeCredential).delete()
+        delete_query = db.query(PlatformConnection).filter(PlatformConnection.platform == PlatformType.YOUTUBE)
+        if workspace_id is not None:
+            delete_query = delete_query.filter(PlatformConnection.workspace_id == workspace_id)
+        delete_query.delete()
         db.commit()
         logger.info("YouTube credentials revoked")

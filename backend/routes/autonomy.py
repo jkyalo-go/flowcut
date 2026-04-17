@@ -1,0 +1,151 @@
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from database import get_db
+from dependencies import get_current_user, get_current_workspace
+from contracts.automation import (
+    AuditLogResponse,
+    AutonomySettingsResponse,
+    AutonomySettingsUpdate,
+    NotificationResponse,
+    ReviewActionRequest,
+)
+from contracts.media import ClipResponse
+from contracts.platforms import CalendarSlotResponse
+from domain.automation import AuditLog, Notification
+from domain.media import Clip
+from domain.platforms import CalendarSlot
+from domain.projects import Project
+from domain.shared import ReviewStatus
+from services.audit import create_notification, record_audit
+
+router = APIRouter()
+
+
+def _parse_platforms(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except Exception:
+        return []
+
+
+@router.get("/settings", response_model=AutonomySettingsResponse)
+def get_workspace_autonomy(workspace=Depends(get_current_workspace)):
+    return AutonomySettingsResponse(
+        workspace_id=workspace.id,
+        autonomy_mode=workspace.autonomy_mode.value,
+        confidence_threshold=workspace.autonomy_confidence_threshold,
+        allowed_platforms=_parse_platforms(workspace.autopublish_platforms),
+        quiet_hours=workspace.quiet_hours,
+        notification_preferences=workspace.notification_preferences,
+    )
+
+
+@router.put("/settings", response_model=AutonomySettingsResponse)
+def update_workspace_autonomy(
+    body: AutonomySettingsUpdate,
+    workspace=Depends(get_current_workspace),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    workspace.autonomy_mode = body.autonomy_mode
+    workspace.autonomy_confidence_threshold = body.confidence_threshold or workspace.autonomy_confidence_threshold
+    workspace.autopublish_platforms = json.dumps(body.allowed_platforms)
+    workspace.quiet_hours = body.quiet_hours
+    workspace.notification_preferences = body.notification_preferences
+    db.commit()
+    record_audit(
+        db,
+        workspace_id=workspace.id,
+        actor="user",
+        user_id=user.id,
+        action="autonomy.settings_updated",
+        target_type="workspace",
+        target_id=str(workspace.id),
+        metadata=body.model_dump(),
+    )
+    return get_workspace_autonomy(workspace)
+
+
+@router.get("/review-queue", response_model=list[ClipResponse])
+def review_queue(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    return db.query(Clip).filter(
+        Clip.workspace_id == workspace.id,
+        Clip.review_status.in_([
+            ReviewStatus.PENDING_REVIEW,
+            ReviewStatus.AUTO_APPROVED,
+            ReviewStatus.FAILED,
+        ]),
+    ).order_by(Clip.id.desc()).all()
+
+
+@router.post("/review-queue/{clip_id}")
+def apply_review_action(
+    clip_id: str,
+    body: ReviewActionRequest,
+    workspace=Depends(get_current_workspace),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    clip = db.query(Clip).filter(
+        Clip.id == clip_id,
+        Clip.workspace_id == workspace.id,
+    ).first()
+    if not clip:
+        raise HTTPException(404, "Clip not found")
+
+    action_map = {
+        "approve": ReviewStatus.APPROVED,
+        "reject": ReviewStatus.REJECTED,
+        "schedule": ReviewStatus.SCHEDULED,
+    }
+    if body.action not in action_map:
+        raise HTTPException(400, "Unsupported review action")
+    clip.review_status = action_map[body.action]
+    db.commit()
+    record_audit(
+        db,
+        workspace_id=workspace.id,
+        actor="user",
+        user_id=user.id,
+        action=f"clip.{body.action}",
+        target_type="clip",
+        target_id=str(clip.id),
+        reason=body.reason,
+    )
+    return {"ok": True, "review_status": clip.review_status.value}
+
+
+@router.get("/calendar", response_model=list[CalendarSlotResponse])
+def list_calendar(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    return db.query(CalendarSlot).filter(CalendarSlot.workspace_id == workspace.id).order_by(CalendarSlot.id.desc()).all()
+
+
+@router.get("/notifications", response_model=list[NotificationResponse])
+def list_notifications(workspace=Depends(get_current_workspace), user=Depends(get_current_user), db: Session = Depends(get_db)):
+    return db.query(Notification).filter(
+        Notification.workspace_id == workspace.id
+    ).order_by(Notification.id.desc()).limit(100).all()
+
+
+@router.post("/notifications/test")
+def push_test_notification(workspace=Depends(get_current_workspace), user=Depends(get_current_user), db: Session = Depends(get_db)):
+    row = create_notification(
+        db,
+        workspace_id=workspace.id,
+        user_id=user.id,
+        category="processing",
+        title="Flowcut test notification",
+        body="Your automation center is configured and ready.",
+        metadata={"kind": "test"},
+    )
+    return {"ok": True, "notification_id": row.id}
+
+
+@router.get("/audit", response_model=list[AuditLogResponse])
+def list_audit_log(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    return db.query(AuditLog).filter(AuditLog.workspace_id == workspace.id).order_by(AuditLog.id.desc()).limit(200).all()

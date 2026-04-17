@@ -4,8 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import MusicItem, Asset, AssetType, TimelineItem, Project
-from schemas import MusicItemResponse, MusicAutoResponse, VolumeKeypoint
+from dependencies import get_current_workspace
+from contracts.media import MusicAutoResponse, MusicItemResponse, VolumeKeypoint
+from domain.media import Asset, MusicItem, TimelineItem
+from domain.projects import Project
+from domain.shared import AssetType
+from routes import require_project
 from services.ducker import compute_volume_envelope
 
 router = APIRouter()
@@ -52,14 +56,19 @@ def _music_item_to_response(item: MusicItem) -> MusicItemResponse:
 
 
 @router.get("/{project_id}", response_model=MusicAutoResponse)
-def get_music(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+def get_music(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     items = (
         db.query(MusicItem)
-        .filter(MusicItem.project_id == project_id)
+        .filter(
+            MusicItem.project_id == project_id,
+            MusicItem.workspace_id == workspace.id,
+        )
         .order_by(MusicItem.start_time)
         .all()
     )
@@ -80,10 +89,12 @@ def get_music(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=MusicAutoResponse)
-def auto_place_music(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+def auto_place_music(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     # Compute total timeline duration
     timeline_items = (
@@ -97,8 +108,15 @@ def auto_place_music(project_id: int, db: Session = Depends(get_db)):
     if total_duration <= 0:
         raise HTTPException(400, "Timeline is empty")
 
-    # Fetch music assets
-    music_assets = db.query(Asset).filter(Asset.asset_type == AssetType.MUSIC).all()
+    # Fetch music assets scoped to this workspace
+    music_assets = (
+        db.query(Asset)
+        .filter(
+            Asset.asset_type == AssetType.MUSIC,
+            Asset.workspace_id == workspace.id,
+        )
+        .all()
+    )
     if not music_assets:
         raise HTTPException(400, "No music assets in library")
 
@@ -106,7 +124,10 @@ def auto_place_music(project_id: int, db: Session = Depends(get_db)):
     shuffled = list(music_assets)
     random.shuffle(shuffled)
 
-    db.query(MusicItem).filter(MusicItem.project_id == project_id).delete()
+    db.query(MusicItem).filter(
+        MusicItem.project_id == project_id,
+        MusicItem.workspace_id == workspace.id,
+    ).delete()
 
     new_items = []
     cursor = 0.0
@@ -120,6 +141,7 @@ def auto_place_music(project_id: int, db: Session = Depends(get_db)):
             start_time=cursor,
             end_time=end,
             volume=0.25,
+            workspace_id=workspace.id,
         )
         db.add(item)
         new_items.append(item)
@@ -139,7 +161,16 @@ def auto_place_music(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{project_id}")
-def clear_music(project_id: int, db: Session = Depends(get_db)):
-    db.query(MusicItem).filter(MusicItem.project_id == project_id).delete()
+def clear_music(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
+
+    db.query(MusicItem).filter(
+        MusicItem.project_id == project_id,
+        MusicItem.workspace_id == workspace.id,
+    ).delete()
     db.commit()
     return {"ok": True}

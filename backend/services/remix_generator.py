@@ -7,8 +7,9 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
-from config import GEMINI_API_KEY, REMIX_DIR, REMIX_DURATION
-from services.title_generator import get_client as get_anthropic_client
+import anthropic
+
+from config import ANTHROPIC_API_KEY, GOOGLE_API_KEY, REMIX_DIR, REMIX_DURATION
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,16 @@ _genai_client: genai.Client | None = None
 def get_genai_client() -> genai.Client:
     global _genai_client
     if _genai_client is None:
-        if not GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY environment variable is not set")
-        _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+        if not GOOGLE_API_KEY:
+            raise RuntimeError("GOOGLE_API_KEY environment variable is not set")
+        _genai_client = genai.Client(api_key=GOOGLE_API_KEY)
     return _genai_client
+
+
+def get_anthropic_client() -> anthropic.Anthropic:
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set")
+    return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
 
 def _extract_reference_frame(source_path: str, time_seconds: float, output_path: str) -> str:
@@ -219,7 +226,7 @@ async def generate_remix_video(
     clip = operation.response.generated_videos[0]
     video_uri = clip.video.uri
     dl_sep = "&" if "?" in video_uri else "?"
-    video_dl_url = f"{video_uri}{dl_sep}key={GEMINI_API_KEY}"
+    video_dl_url = f"{video_uri}{dl_sep}key={GOOGLE_API_KEY}"
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     urllib.request.urlretrieve(video_dl_url, output_path)

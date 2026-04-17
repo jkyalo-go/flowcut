@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import TimelineItem, Clip, SubClip, Project
-from schemas import TimelineItemResponse, TimelineUpdate
+from dependencies import get_current_workspace
+from contracts.media import TimelineItemResponse, TimelineUpdate
+from domain.media import Clip, SubClip, TimelineItem
+from domain.projects import Project
 
 router = APIRouter()
 
@@ -58,10 +60,10 @@ def _resolve_item(item: TimelineItem) -> TimelineItemResponse:
 
 
 @router.get("/{project_id}", response_model=list[TimelineItemResponse])
-def get_timeline(project_id: int, db: Session = Depends(get_db)):
+def get_timeline(project_id: str, workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
     items = (
         db.query(TimelineItem)
-        .filter(TimelineItem.project_id == project_id)
+        .filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id)
         .order_by(TimelineItem.position)
         .all()
     )
@@ -69,18 +71,19 @@ def get_timeline(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{project_id}", response_model=list[TimelineItemResponse])
-def update_timeline(project_id: int, body: TimelineUpdate, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
+def update_timeline(project_id: str, body: TimelineUpdate, workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id, Project.workspace_id == workspace.id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
     # Delete existing timeline items
-    db.query(TimelineItem).filter(TimelineItem.project_id == project_id).delete()
+    db.query(TimelineItem).filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id).delete()
 
     # Create new items
     new_items = []
     for entry in body.items:
         item = TimelineItem(
+            workspace_id=workspace.id,
             project_id=project_id,
             clip_id=entry.clip_id,
             sub_clip_id=entry.sub_clip_id,
@@ -96,9 +99,9 @@ def update_timeline(project_id: int, body: TimelineUpdate, db: Session = Depends
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def remove_timeline_item(project_id: int, item_id: int, db: Session = Depends(get_db)):
+def remove_timeline_item(project_id: str, item_id: str, workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
     item = db.query(TimelineItem).filter(
-        TimelineItem.id == item_id, TimelineItem.project_id == project_id
+        TimelineItem.id == item_id, TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id
     ).first()
     if not item:
         raise HTTPException(404, "Timeline item not found")
@@ -106,7 +109,7 @@ def remove_timeline_item(project_id: int, item_id: int, db: Session = Depends(ge
     # Re-number remaining items
     remaining = (
         db.query(TimelineItem)
-        .filter(TimelineItem.project_id == project_id)
+        .filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id)
         .order_by(TimelineItem.position)
         .all()
     )

@@ -1,13 +1,17 @@
 import json
 import logging
-from services.title_generator import get_client
+import anthropic
+
+from config import ANTHROPIC_API_KEY
 
 logger = logging.getLogger(__name__)
 
 
 def generate_timestamps(datetime_transcript: str, total_duration: float) -> list[dict]:
     """Use Claude to generate contextual time-of-day timestamps from transcript + clip datetimes."""
-    client = get_client()
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set")
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     truncated = datetime_transcript[:30000]
     if len(datetime_transcript) > 30000:

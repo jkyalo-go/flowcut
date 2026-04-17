@@ -1,14 +1,19 @@
 import asyncio
+import json
 import logging
 import os
 import time
 from pathlib import Path
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import Clip, SubClip, TimelineItem, ProcessingStatus, ClipType
+from domain.media import Clip, SubClip, TimelineItem
+from domain.projects import Project
+from domain.shared import ClipType, ProcessingStatus, ReviewStatus
+from services.audit import create_notification, record_audit
 from services.transcriber import extract_audio, transcribe_file
 from services.classifier import classify
 from services.silence_remover import get_duration, get_creation_time
+from services.storage import download_to_temp
 from routes.ws import broadcast
 from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
 
@@ -30,7 +35,7 @@ async def _get_video_codec(path: str) -> str:
     return stdout.decode().strip().lower()
 
 
-async def _generate_proxy(source_path: str, clip_id: int) -> str:
+async def _generate_proxy(source_path: str, clip_id: str) -> str:
     """Transcode to an H.264 proxy for browser playback. Returns output path."""
     os.makedirs(PROCESSED_DIR, exist_ok=True)
     out_path = str(PROCESSED_DIR / f"proxy_{clip_id}.mp4")
@@ -50,7 +55,7 @@ async def _generate_proxy(source_path: str, clip_id: int) -> str:
     return out_path
 
 
-async def process_clip(clip_id: int):
+async def process_clip(clip_id: str):
     db: Session = SessionLocal()
     try:
         clip = db.query(Clip).filter(Clip.id == clip_id).first()
@@ -58,10 +63,13 @@ async def process_clip(clip_id: int):
             return
 
         project_id = clip.project_id
+        project = db.query(Project).filter(Project.id == project_id).first()
+        workspace_id = clip.workspace_id
+        local_source_path = str(download_to_temp(clip.source_path))
 
         # Get duration
         try:
-            clip.duration = await get_duration(clip.source_path)
+            clip.duration = await get_duration(local_source_path)
         except Exception:
             clip.duration = 0
 
@@ -73,14 +81,14 @@ async def process_clip(clip_id: int):
 
         # --- Proxy generation for non-browser-compatible codecs ---
         try:
-            codec = await _get_video_codec(clip.source_path)
+            codec = await _get_video_codec(local_source_path)
             if codec not in BROWSER_COMPATIBLE_CODECS:
                 logger.info(f"Clip {clip_id}: codec '{codec}' not browser-compatible, generating proxy")
                 await broadcast(project_id, "clip_progress", {
                     "clip_id": clip_id, "status": "processing",
                     "progress": 5, "detail": f"generating preview proxy ({codec} \u2192 h264)",
                 })
-                proxy_path = await _generate_proxy(clip.source_path, clip_id)
+                proxy_path = await _generate_proxy(local_source_path, clip_id)
                 clip.processed_path = proxy_path
                 db.commit()
                 logger.info(f"Clip {clip_id}: proxy saved to {proxy_path}")
@@ -95,15 +103,22 @@ async def process_clip(clip_id: int):
             "progress": 0, "detail": "extracting audio",
         })
 
-        audio_path = await extract_audio(clip.source_path)
+        audio_path = await extract_audio(local_source_path)
 
         await broadcast(project_id, "clip_progress", {
             "clip_id": clip_id, "status": "transcribing",
-            "progress": 20, "detail": "sending to Deepgram",
+            "progress": 20, "detail": "sending to Flowcut AI provider",
         })
 
         try:
-            text, segments = await asyncio.to_thread(transcribe_file, audio_path)
+            text, segments = await asyncio.to_thread(
+                transcribe_file,
+                audio_path,
+                workspace_id,
+                None,
+                project_id,
+                clip_id,
+            )
         finally:
             import os
             os.unlink(audio_path)
@@ -164,6 +179,7 @@ async def process_clip(clip_id: int):
 
             for sub in clip.sub_clips:
                 item = TimelineItem(
+                    workspace_id=workspace_id,
                     project_id=project_id,
                     sub_clip_id=sub.id,
                     position=next_pos,
@@ -231,6 +247,7 @@ async def process_clip(clip_id: int):
 
             for sub in clip.sub_clips:
                 item = TimelineItem(
+                    workspace_id=workspace_id,
                     project_id=project_id,
                     sub_clip_id=sub.id,
                     position=next_pos,
@@ -245,9 +262,69 @@ async def process_clip(clip_id: int):
                 "clip_type": "broll",
             })
 
+        autonomy_mode = (project.autonomy_mode.value if project and project.autonomy_mode else None) or (
+            project.workspace.autonomy_mode.value if project and project.workspace and project.workspace.autonomy_mode else "supervised"
+        )
+        confidence_threshold = 0.8
+        if project and project.workspace and project.workspace.autonomy_confidence_threshold is not None:
+            confidence_threshold = project.workspace.autonomy_confidence_threshold
+        clip.confidence_score = 0.92 if clip.clip_type == ClipType.TALKING else 0.78
+
+        if autonomy_mode == "auto_publish" and (clip.confidence_score or 0) >= confidence_threshold:
+            clip.review_status = ReviewStatus.SCHEDULED
+            action = "clip.auto_scheduled"
+            reason = f"confidence >= {confidence_threshold}"
+        elif autonomy_mode == "review_then_publish" and (clip.confidence_score or 0) >= confidence_threshold:
+            clip.review_status = ReviewStatus.AUTO_APPROVED
+            action = "clip.auto_approved"
+            reason = f"confidence >= {confidence_threshold}"
+        else:
+            clip.review_status = ReviewStatus.PENDING_REVIEW
+            action = "clip.pending_review"
+            reason = "manual review required"
+        db.commit()
+
+        record_audit(
+            db,
+            workspace_id=workspace_id,
+            actor="system",
+            action=action,
+            target_type="clip",
+            target_id=str(clip.id),
+            reason=reason,
+            metadata={
+                "autonomy_mode": autonomy_mode,
+                "confidence_score": clip.confidence_score,
+            },
+        )
+        create_notification(
+            db,
+            workspace_id=workspace_id,
+            category="processing",
+            title="Flowcut processing complete",
+            body=f"{Path(clip.source_path).name} finished processing with status {clip.review_status.value}.",
+            metadata={
+                "project_id": project_id,
+                "clip_id": clip.id,
+                "review_status": clip.review_status.value,
+            },
+        )
         await broadcast(project_id, "clip_progress", {
             "clip_id": clip_id, "status": "done",
             "progress": 100, "detail": "complete",
+        })
+        await broadcast(project_id, "clip.draft_ready", {
+            "clip_id": clip_id,
+            "review_status": clip.review_status.value,
+            "confidence_score": clip.confidence_score,
+        })
+        await broadcast(project_id, "review_queue.updated", {
+            "clip_id": clip_id,
+            "review_status": clip.review_status.value,
+        })
+        await broadcast(project_id, "processing.complete", {
+            "clip_id": clip_id,
+            "review_status": clip.review_status.value,
         })
         await broadcast(project_id, "timeline_updated", {})
 

@@ -7,8 +7,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Asset, AssetType
-from schemas import AssetResponse
+from dependencies import get_current_workspace
+from contracts.media import AssetResponse
+from domain.media import Asset
+from domain.shared import AssetType
 from config import ASSETS_DIR, AUDIO_EXTENSIONS
 
 router = APIRouter()
@@ -32,8 +34,12 @@ async def _probe_duration(file_path: str) -> float:
 
 
 @router.get("", response_model=list[AssetResponse])
-def list_assets(asset_type: str | None = Query(None), db: Session = Depends(get_db)):
-    q = db.query(Asset)
+def list_assets(
+    asset_type: str | None = Query(None),
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Asset).filter(Asset.workspace_id == workspace.id)
     if asset_type:
         q = q.filter(Asset.asset_type == asset_type)
     return q.order_by(Asset.created_at.desc()).all()
@@ -43,6 +49,7 @@ def list_assets(asset_type: str | None = Query(None), db: Session = Depends(get_
 async def upload_asset(
     file: UploadFile = File(...),
     asset_type: str = Query("music"),
+    workspace=Depends(get_current_workspace),
     db: Session = Depends(get_db),
 ):
     ext = Path(file.filename or "").suffix.lower()
@@ -67,6 +74,7 @@ async def upload_asset(
         file_path=str(dest),
         asset_type=AssetType(asset_type),
         duration=duration,
+        workspace_id=workspace.id,
     )
     db.add(asset)
     db.commit()
@@ -75,8 +83,15 @@ async def upload_asset(
 
 
 @router.delete("/{asset_id}")
-def delete_asset(asset_id: int, db: Session = Depends(get_db)):
-    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+def delete_asset(
+    asset_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    asset = db.query(Asset).filter(
+        Asset.id == asset_id,
+        Asset.workspace_id == workspace.id,
+    ).first()
     if not asset:
         raise HTTPException(404, "Asset not found")
     Path(asset.file_path).unlink(missing_ok=True)
@@ -86,8 +101,15 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{asset_id}/file")
-def serve_asset_file(asset_id: int, db: Session = Depends(get_db)):
-    asset = db.query(Asset).filter(Asset.id == asset_id).first()
+def serve_asset_file(
+    asset_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    asset = db.query(Asset).filter(
+        Asset.id == asset_id,
+        Asset.workspace_id == workspace.id,
+    ).first()
     if not asset:
         raise HTTPException(404, "Asset not found")
     path = Path(asset.file_path)

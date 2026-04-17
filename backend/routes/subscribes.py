@@ -2,23 +2,26 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import SubscribeItem, TimelineItem, Project
-from schemas import SubscribeItemResponse, SubscribeItemUpdate, SubscribeAutoResponse
+from dependencies import get_current_workspace
+from contracts.media import SubscribeAutoResponse, SubscribeItemResponse, SubscribeItemUpdate
+from domain.media import SubscribeItem, TimelineItem
 from services.subscribe_overlay_generator import generate_subscribe_overlays
 from routes.titles import _build_timestamped_transcript
+from routes import require_project
 
 router = APIRouter()
 
 
 @router.get("/{project_id}", response_model=SubscribeAutoResponse)
-def get_subscribes(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-
+def get_subscribes(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     items = (
         db.query(SubscribeItem)
-        .filter(SubscribeItem.project_id == project_id)
+        .filter(SubscribeItem.project_id == project_id, SubscribeItem.workspace_id == workspace.id)
         .order_by(SubscribeItem.start_time)
         .all()
     )
@@ -26,30 +29,35 @@ def get_subscribes(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=SubscribeAutoResponse)
-def auto_generate_subscribes(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+def auto_generate_subscribes(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     timeline_items = (
         db.query(TimelineItem)
-        .filter(TimelineItem.project_id == project_id)
+        .filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id)
         .order_by(TimelineItem.position)
         .all()
     )
 
-    transcript_text, total_duration = _build_timestamped_transcript(timeline_items)
+    transcript_text, total_duration = _build_timestamped_transcript(timeline_items, workspace.id)
     if not transcript_text or total_duration <= 0:
         raise HTTPException(400, "No transcript available — process clips first")
 
     overlays = generate_subscribe_overlays(transcript_text, total_duration)
 
     # Replace existing subscribe items
-    db.query(SubscribeItem).filter(SubscribeItem.project_id == project_id).delete()
+    db.query(SubscribeItem).filter(
+        SubscribeItem.project_id == project_id, SubscribeItem.workspace_id == workspace.id
+    ).delete()
 
     new_items = []
     for o in overlays:
         item = SubscribeItem(
+            workspace_id=workspace.id,
             project_id=project_id,
             text=o["text"],
             start_time=o["start_time"],
@@ -67,11 +75,20 @@ def auto_generate_subscribes(project_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}/items/{item_id}", response_model=SubscribeItemResponse)
 def update_subscribe_item(
-    project_id: int, item_id: int, body: SubscribeItemUpdate, db: Session = Depends(get_db)
+    project_id: str,
+    item_id: str,
+    body: SubscribeItemUpdate,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
 ):
+    require_project(project_id, workspace.id, db)
     item = (
         db.query(SubscribeItem)
-        .filter(SubscribeItem.id == item_id, SubscribeItem.project_id == project_id)
+        .filter(
+            SubscribeItem.id == item_id,
+            SubscribeItem.project_id == project_id,
+            SubscribeItem.workspace_id == workspace.id,
+        )
         .first()
     )
     if not item:
@@ -86,17 +103,34 @@ def update_subscribe_item(
 
 
 @router.delete("/{project_id}")
-def clear_subscribes(project_id: int, db: Session = Depends(get_db)):
-    db.query(SubscribeItem).filter(SubscribeItem.project_id == project_id).delete()
+def clear_subscribes(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
+    db.query(SubscribeItem).filter(
+        SubscribeItem.project_id == project_id, SubscribeItem.workspace_id == workspace.id
+    ).delete()
     db.commit()
     return {"ok": True}
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def delete_subscribe_item(project_id: int, item_id: int, db: Session = Depends(get_db)):
+def delete_subscribe_item(
+    project_id: str,
+    item_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     rows = (
         db.query(SubscribeItem)
-        .filter(SubscribeItem.id == item_id, SubscribeItem.project_id == project_id)
+        .filter(
+            SubscribeItem.id == item_id,
+            SubscribeItem.project_id == project_id,
+            SubscribeItem.workspace_id == workspace.id,
+        )
         .delete()
     )
     if rows == 0:

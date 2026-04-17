@@ -1,13 +1,17 @@
 import json
 import logging
-from services.title_generator import get_client
+import anthropic
+
+from config import ANTHROPIC_API_KEY
 
 logger = logging.getLogger(__name__)
 
 
 def generate_subscribe_overlays(timestamped_transcript: str, total_duration: float) -> list[dict]:
     """Use Claude to pick 2 moments for a subscribe text overlay."""
-    client = get_client()
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError("ANTHROPIC_API_KEY environment variable is not set")
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     truncated = timestamped_transcript[:30000]
     if len(timestamped_transcript) > 30000:

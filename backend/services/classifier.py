@@ -1,4 +1,4 @@
-from models import ClipType
+from domain.shared import ClipType
 from config import TALKING_WORD_THRESHOLD
 
 

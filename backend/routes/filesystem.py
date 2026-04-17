@@ -1,8 +1,13 @@
+# NOTE: Intentionally unauthenticated. This module exposes local filesystem
+# utilities (folder picker, file listing) that operate on the server's local
+# disk — not tenant data. Do not add tenant-specific data access here.
 import asyncio
 import json
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+
+from services.storage import download_to_temp, resolve_storage_path, signed_url_for
 
 router = APIRouter()
 
@@ -31,7 +36,9 @@ print(json.dumps({"path": path, "cancelled": not bool(path)}))
 @router.get("/serve-video")
 async def serve_video(path: str = Query(...), request: Request = None):
     """Serve a video file from the local filesystem for timeline playback."""
-    p = Path(path)
+    p = download_to_temp(path)
+    if not p.exists():
+        p = resolve_storage_path(path)
     if not p.exists() or not p.is_file():
         raise HTTPException(404, "File not found")
 
@@ -49,3 +56,19 @@ async def serve_video(path: str = Query(...), request: Request = None):
     }
     media_type = media_types.get(suffix, "video/mp4")
     return FileResponse(str(p), media_type=media_type)
+
+
+@router.get("/storage-file")
+async def serve_storage_file(path: str = Query(...)):
+    p = download_to_temp(path)
+    if not p.exists() or not p.is_file():
+        raise HTTPException(404, "Stored file not found")
+    return FileResponse(str(p))
+
+
+@router.get("/signed-url")
+async def get_signed_url(path: str = Query(...)):
+    url = signed_url_for(path)
+    if not url:
+        raise HTTPException(400, "Signed URL is only available for GCS-backed assets")
+    return {"url": url}
