@@ -1,4 +1,5 @@
 import pytest
+from contextlib import asynccontextmanager
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session as SASession
@@ -6,6 +7,14 @@ from sqlalchemy.orm import Session as SASession
 from database import Base, get_db
 from domain import identity, media, projects, platforms, ai, automation, enterprise  # noqa: F401 — registers models
 from main import app
+
+# Suppress the app's background lifespan tasks (watcher queue, platform scheduler)
+# so each TestClient gets a fresh event loop without bound asyncio.Queue objects.
+@asynccontextmanager
+async def _null_lifespan(_app):
+    yield
+
+app.router.lifespan_context = _null_lifespan
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
