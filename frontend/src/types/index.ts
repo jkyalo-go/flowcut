@@ -1,18 +1,9 @@
 export interface Project {
-  id: number;
-  name: string;
-  clips: Clip[];
-  selected_title: string | null;
-  video_description: string | null;
-  video_tags: string | null; // JSON string
-  video_category: string | null;
-  video_visibility: string | null;
-  selected_thumbnail_idx: number | null;
-  desc_system_prompt: string | null;
-  thumbnail_urls: string | null;
-  locked_thumbnail_indices: string | null;
-  thumbnail_text: string | null;
-  render_path: string | null;
+  id: string
+  name: string
+  workspace_id: string
+  status?: string
+  created_at?: string
 }
 
 export interface SubClip {
