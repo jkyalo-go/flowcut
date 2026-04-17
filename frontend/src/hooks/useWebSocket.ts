@@ -10,7 +10,8 @@ export function useWebSocket(projectId: number | null) {
     if (!projectId) return;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/${projectId}`);
+    const host = process.env.NEXT_PUBLIC_WS_URL ?? window.location.host;
+    const ws = new WebSocket(`${protocol}//${host}/ws/${projectId}`);
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
@@ -84,6 +85,20 @@ export function useWebSocket(projectId: number | null) {
           store.setYoutubeUploadProgress(null);
           store.setYoutubeUploadError(msg.data.error as string);
           break;
+
+        case 'upload_progress': {
+          const { session_id, stage, pct } = msg.data as { session_id: string; stage: string; pct: number }
+          if (stage === 'done') {
+            store.setUploadProgress(session_id, null)
+          } else {
+            store.setUploadProgress(session_id, { stage, pct })
+          }
+          break
+        }
+        case 'review_queue_updated': {
+          store.setReviewQueueDirty(true)
+          break
+        }
       }
     };
 

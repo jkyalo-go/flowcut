@@ -103,6 +103,11 @@ interface TimelineStore {
   setYoutubeUploadProgress: (pct: number | null) => void;
   setYoutubeUploadResult: (r: { videoId: string; videoUrl: string } | null) => void;
   setYoutubeUploadError: (err: string | null) => void;
+
+  uploadProgress: Record<string, { stage: string; pct: number }> | null;
+  setUploadProgress: (sessionId: string, data: { stage: string; pct: number } | null) => void;
+  reviewQueueDirty: boolean;
+  setReviewQueueDirty: (dirty: boolean) => void;
 }
 
 export const useTimelineStore = create<TimelineStore>((set) => ({
@@ -229,4 +234,14 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   setYoutubeUploadProgress: (youtubeUploadProgress) => set({ youtubeUploadProgress }),
   setYoutubeUploadResult: (youtubeUploadResult) => set({ youtubeUploadResult }),
   setYoutubeUploadError: (youtubeUploadError) => set({ youtubeUploadError }),
+
+  uploadProgress: null,
+  setUploadProgress: (sessionId, data) =>
+    set(state => ({
+      uploadProgress: data
+        ? { ...(state.uploadProgress ?? {}), [sessionId]: data }
+        : Object.fromEntries(Object.entries(state.uploadProgress ?? {}).filter(([k]) => k !== sessionId))
+    })),
+  reviewQueueDirty: false,
+  setReviewQueueDirty: (reviewQueueDirty) => set({ reviewQueueDirty }),
 }));
