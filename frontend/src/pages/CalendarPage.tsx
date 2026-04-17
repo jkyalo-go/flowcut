@@ -202,8 +202,8 @@ export function CalendarPage() {
               </CardHeader>
               <CardContent>
                 <div className="divide-y">
-                  {gaps.slice(0, 5).map((gap, index) => (
-                    <div key={index} className="flex items-center justify-between py-3">
+                  {gaps.slice(0, 5).map((gap) => (
+                    <div key={`${gap.platform}-${gap.suggested_at}`} className="flex items-center justify-between py-3">
                       <div>
                         <p className="text-sm font-medium">{gap.platform}</p>
                         <p className="text-sm text-muted-foreground">{formatDate(gap.suggested_at)}</p>
