@@ -1,8 +1,9 @@
 // frontend/pages/invitations/[token]/accept.tsx
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { api, ApiError } from '@/lib/api'
 
 export default function AcceptInvitePage() {
@@ -13,6 +14,9 @@ export default function AcceptInvitePage() {
   const [accepting, setAccepting] = useState(false)
   const [done, setDone] = useState(false)
   const [acceptError, setAcceptError] = useState('')
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current) }, [])
 
   async function accept() {
     if (!tok) return
@@ -21,7 +25,7 @@ export default function AcceptInvitePage() {
     try {
       await api.post(`/invitations/${tok}/accept`)
       setDone(true)
-      setTimeout(() => router.replace('/'), 2000)
+      redirectTimerRef.current = setTimeout(() => router.replace('/'), 2000)
     } catch (err) {
       setAcceptError(err instanceof ApiError ? err.message : 'Failed to accept invitation')
     } finally {
@@ -53,7 +57,9 @@ export default function AcceptInvitePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {acceptError && (
-            <p className="text-sm text-destructive">{acceptError}</p>
+            <Alert variant="destructive">
+              <AlertDescription>{acceptError}</AlertDescription>
+            </Alert>
           )}
           <Button
             onClick={accept}
