@@ -237,11 +237,13 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
 
   uploadProgress: null,
   setUploadProgress: (sessionId, data) =>
-    set(state => ({
-      uploadProgress: data
-        ? { ...(state.uploadProgress ?? {}), [sessionId]: data }
-        : Object.fromEntries(Object.entries(state.uploadProgress ?? {}).filter(([k]) => k !== sessionId))
-    })),
+    set(state => {
+      if (data) {
+        return { uploadProgress: { ...(state.uploadProgress ?? {}), [sessionId]: data } }
+      }
+      const next = Object.fromEntries(Object.entries(state.uploadProgress ?? {}).filter(([k]) => k !== sessionId))
+      return { uploadProgress: Object.keys(next).length === 0 ? null : next }
+    }),
   reviewQueueDirty: false,
   setReviewQueueDirty: (reviewQueueDirty) => set({ reviewQueueDirty }),
 }));
