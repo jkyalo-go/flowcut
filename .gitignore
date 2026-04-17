@@ -7,3 +7,4 @@ __pycache__/
 backend/static/processed/
 .DS_Store
 *.db
+.worktrees/
