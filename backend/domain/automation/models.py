@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 
 from database import Base
 from domain.shared import UUID_SQL_TYPE, new_uuid
@@ -31,3 +31,16 @@ class AuditLog(Base):
     reason = Column(String, nullable=True)
     metadata_json = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class DeviceToken(Base):
+    __tablename__ = "device_tokens"
+
+    id = Column(UUID_SQL_TYPE, primary_key=True, default=new_uuid)
+    user_id = Column(UUID_SQL_TYPE, ForeignKey("users.id"), nullable=False)
+    workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=False)
+    token = Column(String, nullable=False)
+    platform = Column(String, nullable=False, default="web")
+    created_at = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("user_id", "token", name="uq_device_token_user"),)

@@ -1,3 +1,3 @@
-from domain.automation.models import AuditLog, Notification
+from domain.automation.models import AuditLog, DeviceToken, Notification
 
-__all__ = ["AuditLog", "Notification"]
+__all__ = ["AuditLog", "DeviceToken", "Notification"]
