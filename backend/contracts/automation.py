@@ -47,3 +47,5 @@ class AutonomySettingsUpdate(BaseModel):
 class ReviewActionRequest(BaseModel):
     action: str
     reason: str | None = None
+    corrections: list[dict] = Field(default_factory=list)
+    edit_manifest_override: dict | None = None

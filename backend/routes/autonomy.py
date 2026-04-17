@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -117,6 +118,32 @@ def apply_review_action(
         target_id=str(clip.id),
         reason=body.reason,
     )
+
+    if body.action == "reject" and body.corrections:
+        from services.sie.re_planner import re_plan_clip
+        asyncio.create_task(re_plan_clip(str(clip.id), body.corrections))
+
+    if body.action == "approve" and body.edit_manifest_override:
+        override = body.edit_manifest_override
+        if override and getattr(clip, 'edit_manifest', None):
+            try:
+                from services.sie.feedback import diff_manifests, apply_feedback_to_profile
+                profile = None
+                if getattr(clip, 'profile_id', None):
+                    from domain.projects import StyleProfile
+                    profile = db.query(StyleProfile).filter(StyleProfile.id == clip.profile_id).first()
+                original = json.loads(clip.edit_manifest)
+                diff = diff_manifests(original, override)
+                if diff and profile:
+                    style_dict = json.loads(profile.style_doc or "{}")
+                    locks = json.loads(profile.dimension_locks or "{}")
+                    updated = apply_feedback_to_profile(style_dict, diff, locks, action="modified")
+                    profile.style_doc = json.dumps(updated)
+                    profile.version = (profile.version or 1) + 1
+                    db.commit()
+            except Exception:
+                pass
+
     return {"ok": True, "review_status": clip.review_status.value}
 
 
