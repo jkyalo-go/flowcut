@@ -12,7 +12,7 @@ import openai as openai_sdk
 from google import genai
 from sqlalchemy.orm import Session
 
-from config import ANTHROPIC_API_KEY, GOOGLE_API_KEY, VERTEX_LOCATION, VERTEX_PROJECT_ID
+from config import ANTHROPIC_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, VERTEX_LOCATION, VERTEX_PROJECT_ID
 from domain.ai import AIProviderConfig, AIProviderCredential, AIUsageRecord
 from domain.shared import AIProvider, AIUsageStatus, CredentialSource
 
@@ -57,10 +57,11 @@ class AIProviderRegistry:
         self._anthropic_client: anthropic.Anthropic | None = None
         self._gemini_client: genai.Client | None = None
         self._openai_client: openai_sdk.OpenAI | None = None
+        self._vertex_openai_client: openai_sdk.OpenAI | None = None
 
     def provider_catalog(self, db: Session | None = None) -> list[dict]:
         if db is None:
-            providers = [AIProvider.ANTHROPIC.value, AIProvider.VERTEX.value, AIProvider.DEEPGRAM.value, AIProvider.DASHSCOPE.value]
+            providers = [AIProvider.ANTHROPIC.value, AIProvider.OPENAI.value, AIProvider.VERTEX.value, AIProvider.DEEPGRAM.value, AIProvider.DASHSCOPE.value]
             return [
                 {
                     "provider": provider,
@@ -155,8 +156,7 @@ class AIProviderRegistry:
         return self._gemini_client
 
     def _get_openai_client(self, api_key: str | None = None) -> openai_sdk.OpenAI:
-        import os
-        key = api_key or os.getenv("OPENAI_API_KEY")
+        key = api_key or OPENAI_API_KEY
         if not key:
             raise RuntimeError("OpenAI API key is not configured")
         if api_key:
@@ -301,13 +301,20 @@ class AIProviderRegistry:
 
     def _run_instructor_vertex(self, api_key, model, system, user_content, response_model, max_retries=3):
         """Vertex AI structured output via the OpenAI-compatible endpoint."""
-        import instructor, os
-        key = api_key or os.getenv("GOOGLE_API_KEY", "placeholder")
+        import instructor
+        key = api_key or GOOGLE_API_KEY
+        if not key and not VERTEX_PROJECT_ID:
+            raise RuntimeError("Vertex AI is not configured")
         base_url = (
             f"https://{VERTEX_LOCATION}-aiplatform.googleapis.com/v1beta1/projects/"
             f"{VERTEX_PROJECT_ID}/locations/{VERTEX_LOCATION}/endpoints/openapi/chat/completions"
         )
-        vertex_client = openai_sdk.OpenAI(api_key=key, base_url=base_url)
+        if api_key:
+            vertex_client = openai_sdk.OpenAI(api_key=key, base_url=base_url)
+        else:
+            if self._vertex_openai_client is None:
+                self._vertex_openai_client = openai_sdk.OpenAI(api_key=key or "vertex", base_url=base_url)
+            vertex_client = self._vertex_openai_client
         client = instructor.from_openai(vertex_client)
         messages = []
         if system:
