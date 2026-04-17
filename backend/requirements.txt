@@ -24,5 +24,4 @@ instructor>=1.6.0
 langgraph>=0.2.0
 mem0ai>=0.1.0
 stripe>=11.0.0
-sendgrid>=6.11.0
 firebase-admin>=6.5.0
