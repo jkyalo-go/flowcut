@@ -23,9 +23,9 @@ def run_quality_gates(
 
     # Gate 2: zoom grounding — zooms must fall within the trim window
     for z in manifest.zooms:
-        if z.at_sec < manifest.trim.start_sec or z.at_sec > manifest.trim.end_sec:
+        if z.at_sec < manifest.trim.start_sec or z.at_sec + z.duration_sec > manifest.trim.end_sec:
             raise GateFailure(
-                f"zoom at_sec={z.at_sec} is outside trim window "
+                f"zoom at_sec={z.at_sec} duration={z.duration_sec} extends outside trim window "
                 f"[{manifest.trim.start_sec}, {manifest.trim.end_sec}]"
             )
 

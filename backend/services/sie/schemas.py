@@ -1,11 +1,19 @@
 from __future__ import annotations
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TrimAction(BaseModel):
     start_sec: float = Field(ge=0.0)
     end_sec: float = Field(ge=0.0)
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> "TrimAction":
+        if self.end_sec <= self.start_sec:
+            raise ValueError(
+                f"end_sec ({self.end_sec}) must be greater than start_sec ({self.start_sec})"
+            )
+        return self
 
 
 class ZoomAction(BaseModel):
@@ -20,10 +28,18 @@ class TransitionAction(BaseModel):
     type: Literal["hard_cut", "crossfade", "whip_pan", "zoom_blur"] = "hard_cut"
     duration_sec: float = Field(ge=0.0, le=1.0, default=0.0)
 
+    @model_validator(mode="after")
+    def duration_required_for_non_hard_cut(self) -> "TransitionAction":
+        if self.type != "hard_cut" and self.duration_sec == 0.0:
+            raise ValueError(
+                f"transition type '{self.type}' requires duration_sec > 0"
+            )
+        return self
+
 
 class SFXAction(BaseModel):
     at_sec: float = Field(ge=0.0)
-    sfx_id: str
+    sfx_id: str = Field(min_length=1)
     volume_db: float = Field(ge=-40.0, le=0.0, default=-12.0)
 
 
@@ -34,11 +50,27 @@ class CaptionSegment(BaseModel):
     animation: Literal["word_by_word", "fade", "slide_up", "typewriter"] = "word_by_word"
     emphasis_words: List[str] = []
 
+    @model_validator(mode="after")
+    def end_after_start(self) -> "CaptionSegment":
+        if self.end_sec <= self.start_sec:
+            raise ValueError(
+                f"end_sec ({self.end_sec}) must be greater than start_sec ({self.start_sec})"
+            )
+        return self
+
 
 class SpeedRamp(BaseModel):
     start_sec: float = Field(ge=0.0)
     end_sec: float = Field(ge=0.0)
     speed_factor: float = Field(ge=0.25, le=8.0)
+
+    @model_validator(mode="after")
+    def end_after_start(self) -> "SpeedRamp":
+        if self.end_sec <= self.start_sec:
+            raise ValueError(
+                f"end_sec ({self.end_sec}) must be greater than start_sec ({self.start_sec})"
+            )
+        return self
 
 
 Platform = Literal["tiktok", "youtube_shorts", "instagram_reels", "youtube", "linkedin", "x"]
@@ -46,7 +78,7 @@ Platform = Literal["tiktok", "youtube_shorts", "instagram_reels", "youtube", "li
 
 class EditManifest(BaseModel):
     trim: TrimAction
-    platform_targets: List[Platform]
+    platform_targets: List[Platform] = Field(min_length=1)
     zooms: List[ZoomAction] = []
     transitions: List[TransitionAction] = []
     sfx: List[SFXAction] = []
@@ -56,4 +88,4 @@ class EditManifest(BaseModel):
     intro_duration_sec: float = Field(ge=0.0, le=10.0, default=0.0)
     outro_duration_sec: float = Field(ge=0.0, le=10.0, default=2.0)
     confidence: float = Field(ge=0.0, le=1.0)
-    reasoning: str
+    reasoning: str = Field(min_length=1)
