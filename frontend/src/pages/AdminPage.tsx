@@ -71,7 +71,7 @@ export function AdminPage() {
   if (onboarding) {
     try {
       checklist = JSON.parse(onboarding.checklist_json) as ChecklistStep[]
-    } catch {
+    } catch (_err) {
       checklist = []
     }
   }
