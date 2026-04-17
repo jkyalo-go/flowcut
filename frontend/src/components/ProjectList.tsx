@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { api, ApiError, getStoredToken } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useTimelineStore } from '@/stores/timelineStore'
-import type { Project } from '@/types'
+import type { Project, Clip, TimelineItem } from '@/types'
 
 export function ProjectList() {
   const { workspace } = useAuthStore()
@@ -26,10 +26,12 @@ export function ProjectList() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    let mounted = true
     api.get<Project[]>('/api/projects')
-      .then(setProjects)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+      .then(data => { if (mounted) setProjects(data) })
+      .catch(() => { if (mounted) setError('Failed to load projects') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
   }, [])
 
   async function createProject() {
@@ -57,21 +59,24 @@ export function ProjectList() {
     try {
       await api.delete(`/api/projects/${id}`)
       setProjects(prev => prev.filter(p => p.id !== id))
-    } catch {}
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to delete project')
+    }
   }
 
   async function openProject(id: string) {
+    setError('')
     try {
       const [proj, clips, timeline] = await Promise.all([
         api.get<Project>(`/api/projects/${id}`),
-        api.get<unknown[]>(`/api/clips?project_id=${id}`),
-        api.get<unknown>(`/api/timeline/${id}`),
+        api.get<Clip[]>(`/api/clips?project_id=${id}`),
+        api.get<{ items?: TimelineItem[] }>(`/api/timeline/${id}`),
       ])
-      setProject(proj as never)
-      setClips(clips as never)
-      setTimelineItems(((timeline as { items?: unknown[] })?.items ?? []) as never)
+      setProject(proj)
+      setClips(clips)
+      setTimelineItems(timeline?.items ?? [])
     } catch (e) {
-      console.error('[openProject] failed:', e)
+      setError(e instanceof ApiError ? e.message : 'Failed to open project')
     }
   }
 
@@ -168,6 +173,7 @@ export function ProjectList() {
         }`}
         onDragOver={e => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
+        onDragEnd={() => setDragging(false)}
         onDrop={e => {
           e.preventDefault()
           setDragging(false)
