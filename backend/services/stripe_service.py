@@ -1,5 +1,16 @@
 import os
+import logging
 import stripe
+
+logger = logging.getLogger(__name__)
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
+if not stripe.api_key:
+    logger.warning("STRIPE_SECRET_KEY is not set — Stripe calls will fail")
+
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+if not STRIPE_WEBHOOK_SECRET:
+    logger.warning("STRIPE_WEBHOOK_SECRET is not set — webhook verification will fail")
 
 PLAN_PRICE_MAP = {
     "creator": os.getenv("STRIPE_PRICE_CREATOR", "price_creator_monthly"),
@@ -8,12 +19,7 @@ PLAN_PRICE_MAP = {
 }
 
 
-def init_stripe():
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-
-
 def create_checkout_session(workspace_id: str, plan_tier: str, success_url: str, cancel_url: str):
-    init_stripe()
     price_id = PLAN_PRICE_MAP.get(plan_tier)
     if not price_id:
         raise ValueError(f"Unknown plan tier: {plan_tier}")
@@ -27,6 +33,4 @@ def create_checkout_session(workspace_id: str, plan_tier: str, success_url: str,
 
 
 def construct_webhook_event(payload: bytes, sig_header: str) -> dict:
-    init_stripe()
-    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    return stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+    return stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)

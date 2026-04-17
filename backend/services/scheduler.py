@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 DEFAULT_HEATMAP = {
     0: [0.1]*6 + [0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.8, 0.8, 0.7, 0.7, 0.9, 0.95, 0.9, 0.85, 0.8, 0.7, 0.5],
@@ -7,9 +7,10 @@ DEFAULT_HEATMAP = {
     2: [0.1]*6 + [0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.8, 0.8, 0.7, 0.7, 0.9, 0.95, 0.9, 0.85, 0.8, 0.7, 0.5],
     3: [0.1]*6 + [0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.8, 0.8, 0.7, 0.7, 0.9, 0.95, 0.9, 0.85, 0.8, 0.7, 0.5],
     4: [0.1]*6 + [0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.8, 0.85, 0.85, 0.8, 0.95, 1.0, 0.95, 0.9, 0.85, 0.8, 0.6],
-    5: [0.2]*5 + [0.4, 0.5, 0.6, 0.65, 0.7, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6],
-    6: [0.2]*5 + [0.4, 0.5, 0.6, 0.65, 0.7, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6],
+    5: [0.2]*5 + [0.4, 0.5, 0.6, 0.65, 0.7, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.6],
+    6: [0.2]*5 + [0.4, 0.5, 0.6, 0.65, 0.7, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.6, 0.6],
 }
+assert all(len(v) == 24 for v in DEFAULT_HEATMAP.values()), "All heatmap days must have 24 hours"
 
 
 def score_slot(
@@ -55,7 +56,7 @@ def find_gaps(
     if heatmap is None:
         heatmap = DEFAULT_HEATMAP
     scheduled_dts = {s["scheduled_at"] for s in scheduled_slots}
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     gaps = []
 
     for day_offset in range(window_days):

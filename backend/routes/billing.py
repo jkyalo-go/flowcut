@@ -16,12 +16,15 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 @router.post("/checkout")
 def checkout(payload: dict, db: Session = Depends(get_db), workspace=Depends(get_current_workspace)):
     plan_tier = payload.get("plan_tier", "creator")
-    stripe_session = create_checkout_session(
-        workspace_id=str(workspace.id),
-        plan_tier=plan_tier,
-        success_url=f"{FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{FRONTEND_URL}/billing/cancel",
-    )
+    try:
+        stripe_session = create_checkout_session(
+            workspace_id=str(workspace.id),
+            plan_tier=plan_tier,
+            success_url=f"{FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{FRONTEND_URL}/billing/cancel",
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     return {"checkout_url": stripe_session.url, "session_id": stripe_session.id}
 
 
