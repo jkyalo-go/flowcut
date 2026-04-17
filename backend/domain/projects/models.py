@@ -61,8 +61,15 @@ class StyleProfile(Base):
     workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=False)
     project_id = Column(UUID_SQL_TYPE, ForeignKey("projects.id"), nullable=True)
     name = Column(String, nullable=False)
+    genre = Column(String, nullable=True)
+
+    style_doc = Column(String, nullable=True)
+    confidence_scores = Column(String, nullable=True, default="{}")
+    dimension_locks = Column(String, nullable=True, default="{}")
+    version = Column(Integer, nullable=False, default=1)
+    mem0_user_id = Column(String, nullable=True)
+
     brand_kit = Column(String, nullable=True)
     platform_targets = Column(String, nullable=True)
-    preferences = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

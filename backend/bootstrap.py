@@ -97,6 +97,14 @@ def _bootstrap_database():
             ("render_variant", "VARCHAR", None),
             ("correlation_id", "VARCHAR", None),
         ])
+        _ensure_columns(conn, "style_profiles", [
+            ("genre", "VARCHAR", None),
+            ("style_doc", "VARCHAR", None),
+            ("confidence_scores", "VARCHAR", "'{}'"),
+            ("dimension_locks", "VARCHAR", "'{}'"),
+            ("version", "INTEGER", "1"),
+            ("mem0_user_id", "VARCHAR", None),
+        ])
         conn.commit()
         _seed_defaults(conn)
 
