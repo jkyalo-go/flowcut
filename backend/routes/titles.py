@@ -2,15 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from dependencies import get_current_workspace
 from contracts.media import TitleAutoResponse, TitleItemResponse, TitleItemUpdate
 from domain.media import TimelineItem, TitleItem
 from domain.projects import Project
 from services.title_overlay_generator import generate_title_overlays
+from routes import require_project
 
 router = APIRouter()
 
 
-def _build_timestamped_transcript(items: list[TimelineItem]) -> tuple[str, float]:
+def _build_timestamped_transcript(
+    items: list[TimelineItem],
+    workspace_id: str | None = None,
+) -> tuple[str, float]:
     """Walk ordered timeline items and produce a timestamped transcript string."""
     parts = []
     cursor = 0.0
@@ -44,14 +49,15 @@ def _build_timestamped_transcript(items: list[TimelineItem]) -> tuple[str, float
 
 
 @router.get("/{project_id}", response_model=TitleAutoResponse)
-def get_titles(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-
+def get_titles(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     items = (
         db.query(TitleItem)
-        .filter(TitleItem.project_id == project_id)
+        .filter(TitleItem.project_id == project_id, TitleItem.workspace_id == workspace.id)
         .order_by(TitleItem.start_time)
         .all()
     )
@@ -59,30 +65,35 @@ def get_titles(project_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=TitleAutoResponse)
-def auto_generate_titles(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+def auto_generate_titles(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    project = require_project(project_id, workspace.id, db)
 
     timeline_items = (
         db.query(TimelineItem)
-        .filter(TimelineItem.project_id == project_id)
+        .filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id)
         .order_by(TimelineItem.position)
         .all()
     )
 
-    transcript_text, total_duration = _build_timestamped_transcript(timeline_items)
+    transcript_text, total_duration = _build_timestamped_transcript(timeline_items, workspace.id)
     if not transcript_text or total_duration <= 0:
         raise HTTPException(400, "No transcript available — process clips first")
 
     overlays = generate_title_overlays(transcript_text, total_duration, project.workspace_id)
 
     # Replace existing titles
-    db.query(TitleItem).filter(TitleItem.project_id == project_id).delete()
+    db.query(TitleItem).filter(
+        TitleItem.project_id == project_id, TitleItem.workspace_id == workspace.id
+    ).delete()
 
     new_items = []
     for o in overlays:
         item = TitleItem(
+            workspace_id=workspace.id,
             project_id=project_id,
             text=o["text"],
             start_time=o["start_time"],
@@ -100,11 +111,20 @@ def auto_generate_titles(project_id: str, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}/items/{item_id}", response_model=TitleItemResponse)
 def update_title_item(
-    project_id: str, item_id: str, body: TitleItemUpdate, db: Session = Depends(get_db)
+    project_id: str,
+    item_id: str,
+    body: TitleItemUpdate,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
 ):
+    require_project(project_id, workspace.id, db)
     item = (
         db.query(TitleItem)
-        .filter(TitleItem.id == item_id, TitleItem.project_id == project_id)
+        .filter(
+            TitleItem.id == item_id,
+            TitleItem.project_id == project_id,
+            TitleItem.workspace_id == workspace.id,
+        )
         .first()
     )
     if not item:
@@ -119,17 +139,34 @@ def update_title_item(
 
 
 @router.delete("/{project_id}")
-def clear_titles(project_id: str, db: Session = Depends(get_db)):
-    db.query(TitleItem).filter(TitleItem.project_id == project_id).delete()
+def clear_titles(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
+    db.query(TitleItem).filter(
+        TitleItem.project_id == project_id, TitleItem.workspace_id == workspace.id
+    ).delete()
     db.commit()
     return {"ok": True}
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def delete_title_item(project_id: str, item_id: str, db: Session = Depends(get_db)):
+def delete_title_item(
+    project_id: str,
+    item_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     rows = (
         db.query(TitleItem)
-        .filter(TitleItem.id == item_id, TitleItem.project_id == project_id)
+        .filter(
+            TitleItem.id == item_id,
+            TitleItem.project_id == project_id,
+            TitleItem.workspace_id == workspace.id,
+        )
         .delete()
     )
     if rows == 0:

@@ -7,12 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from dependencies import get_current_workspace
 from contracts.media import TrackerAutoResponse, TrackerItemResponse
 from domain.media import TimelineItem, TrackerItem
 from domain.projects import Project
 from domain.shared import ClipType
 from services.tracker_generator import generate_tracker_overlay
 from config import PROCESSED_DIR
+from routes import require_project
 
 router = APIRouter()
 
@@ -29,14 +31,15 @@ def _overlay_url(overlay_path: str) -> str:
 
 
 @router.get("/{project_id}", response_model=TrackerAutoResponse)
-def get_trackers(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-
+def get_trackers(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     items = (
         db.query(TrackerItem)
-        .filter(TrackerItem.project_id == project_id)
+        .filter(TrackerItem.project_id == project_id, TrackerItem.workspace_id == workspace.id)
         .order_by(TrackerItem.start_time)
         .all()
     )
@@ -54,14 +57,16 @@ def get_trackers(project_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=TrackerAutoResponse)
-async def auto_generate_trackers(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
+async def auto_generate_trackers(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
 
     timeline_items = (
         db.query(TimelineItem)
-        .filter(TimelineItem.project_id == project_id)
+        .filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id)
         .order_by(TimelineItem.position)
         .all()
     )
@@ -109,7 +114,9 @@ async def auto_generate_trackers(project_id: str, db: Session = Depends(get_db))
     selected = random.sample(broll_entries, min(count, len(broll_entries)))
 
     # Clear existing trackers
-    db.query(TrackerItem).filter(TrackerItem.project_id == project_id).delete()
+    db.query(TrackerItem).filter(
+        TrackerItem.project_id == project_id, TrackerItem.workspace_id == workspace.id
+    ).delete()
     proj_dir = TRACKER_DIR / str(project_id)
     if proj_dir.exists():
         shutil.rmtree(proj_dir)
@@ -127,6 +134,7 @@ async def auto_generate_trackers(project_id: str, db: Session = Depends(get_db))
             output_path=out_path,
         )
         item = TrackerItem(
+            workspace_id=workspace.id,
             project_id=project_id,
             start_time=tl_start,
             end_time=tl_end,
@@ -153,8 +161,15 @@ async def auto_generate_trackers(project_id: str, db: Session = Depends(get_db))
 
 
 @router.delete("/{project_id}")
-def clear_trackers(project_id: str, db: Session = Depends(get_db)):
-    db.query(TrackerItem).filter(TrackerItem.project_id == project_id).delete()
+def clear_trackers(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
+    db.query(TrackerItem).filter(
+        TrackerItem.project_id == project_id, TrackerItem.workspace_id == workspace.id
+    ).delete()
     db.commit()
 
     proj_dir = TRACKER_DIR / str(project_id)

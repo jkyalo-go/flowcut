@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from dependencies import get_current_workspace
 from contracts.media import CaptionAutoResponse, CaptionItemResponse, CaptionItemUpdate
 from domain.media import CaptionItem, TimelineItem
 from domain.projects import Project
+from routes import require_project
 
 router = APIRouter()
 
@@ -12,24 +14,20 @@ WORDS_PER_PHRASE = 5
 
 
 def _split_into_phrases(text: str, words_per_phrase: int = WORDS_PER_PHRASE) -> list[str]:
-    """Split text into short phrases of approximately words_per_phrase words."""
     words = text.split()
-    phrases = []
-    for i in range(0, len(words), words_per_phrase):
-        phrase = " ".join(words[i:i + words_per_phrase])
-        phrases.append(phrase)
-    return phrases
+    return [" ".join(words[i:i + words_per_phrase]) for i in range(0, len(words), words_per_phrase)]
 
 
 @router.get("/{project_id}", response_model=CaptionAutoResponse)
-def get_captions(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-
+def get_captions(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     items = (
         db.query(CaptionItem)
-        .filter(CaptionItem.project_id == project_id)
+        .filter(CaptionItem.project_id == project_id, CaptionItem.workspace_id == workspace.id)
         .order_by(CaptionItem.start_time)
         .all()
     )
@@ -37,22 +35,21 @@ def get_captions(project_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=CaptionAutoResponse)
-def auto_generate_captions(project_id: str, db: Session = Depends(get_db)):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(404, "Project not found")
-
+def auto_generate_captions(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
     timeline_items = (
         db.query(TimelineItem)
-        .filter(TimelineItem.project_id == project_id)
+        .filter(TimelineItem.project_id == project_id, TimelineItem.workspace_id == workspace.id)
         .order_by(TimelineItem.position)
         .all()
     )
 
-    # Walk timeline and generate captions for talking clips
     cursor = 0.0
     captions = []
-
     for item in timeline_items:
         if item.sub_clip_id and item.sub_clip:
             sub = item.sub_clip
@@ -76,24 +73,24 @@ def auto_generate_captions(project_id: str, db: Session = Depends(get_db)):
                 phrase_duration = duration / len(phrases)
                 for i, phrase in enumerate(phrases):
                     start = cursor + i * phrase_duration
-                    end = start + phrase_duration
                     captions.append({
                         "text": phrase,
                         "start_time": round(start, 2),
-                        "end_time": round(end, 2),
+                        "end_time": round(start + phrase_duration, 2),
                     })
-
         cursor += duration
 
     if not captions:
         raise HTTPException(400, "No talking clips with transcripts found")
 
-    # Replace existing captions
-    db.query(CaptionItem).filter(CaptionItem.project_id == project_id).delete()
+    db.query(CaptionItem).filter(
+        CaptionItem.project_id == project_id, CaptionItem.workspace_id == workspace.id
+    ).delete()
 
     new_items = []
     for c in captions:
         item = CaptionItem(
+            workspace_id=workspace.id,
             project_id=project_id,
             text=c["text"],
             start_time=c["start_time"],
@@ -111,38 +108,55 @@ def auto_generate_captions(project_id: str, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}/items/{item_id}", response_model=CaptionItemResponse)
 def update_caption_item(
-    project_id: str, item_id: str, body: CaptionItemUpdate, db: Session = Depends(get_db)
+    project_id: str,
+    item_id: str,
+    body: CaptionItemUpdate,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
 ):
-    item = (
-        db.query(CaptionItem)
-        .filter(CaptionItem.id == item_id, CaptionItem.project_id == project_id)
-        .first()
-    )
+    require_project(project_id, workspace.id, db)
+    item = db.query(CaptionItem).filter(
+        CaptionItem.id == item_id,
+        CaptionItem.project_id == project_id,
+        CaptionItem.workspace_id == workspace.id,
+    ).first()
     if not item:
         raise HTTPException(404, "Caption item not found")
 
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(item, field, value)
-
     db.commit()
     db.refresh(item)
     return CaptionItemResponse.model_validate(item)
 
 
 @router.delete("/{project_id}")
-def clear_captions(project_id: str, db: Session = Depends(get_db)):
-    db.query(CaptionItem).filter(CaptionItem.project_id == project_id).delete()
+def clear_captions(
+    project_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
+    db.query(CaptionItem).filter(
+        CaptionItem.project_id == project_id, CaptionItem.workspace_id == workspace.id
+    ).delete()
     db.commit()
     return {"ok": True}
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def delete_caption_item(project_id: str, item_id: str, db: Session = Depends(get_db)):
-    rows = (
-        db.query(CaptionItem)
-        .filter(CaptionItem.id == item_id, CaptionItem.project_id == project_id)
-        .delete()
-    )
+def delete_caption_item(
+    project_id: str,
+    item_id: str,
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    require_project(project_id, workspace.id, db)
+    rows = db.query(CaptionItem).filter(
+        CaptionItem.id == item_id,
+        CaptionItem.project_id == project_id,
+        CaptionItem.workspace_id == workspace.id,
+    ).delete()
     if rows == 0:
         raise HTTPException(404, "Caption item not found")
     db.commit()
