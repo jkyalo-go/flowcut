@@ -28,13 +28,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { user, clear } = useAuthStore()
 
-  function handleSignOut() {
+  async function handleSignOut() {
     clearStoredToken()
     clear()
-    router.replace('/login')
+    await router.replace('/login')
   }
 
-  const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) ?? 'FC'
+  const initials = user?.name
+    ? user.name.split(' ').filter(w => w.length > 0).map(w => w[0].toUpperCase()).slice(0, 2).join('') || 'FC'
+    : 'FC'
 
   return (
     <SidebarProvider>
