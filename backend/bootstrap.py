@@ -245,6 +245,36 @@ async def _performance_feedback_loop():
             logging.warning("Performance feedback loop error: %s", e)
 
 
+async def _token_refresh_loop():
+    while True:
+        await asyncio.sleep(300)  # every 5 minutes
+        def _run_refresh():
+            import os
+            db = SessionLocal()
+            try:
+                from services.token_refresh import get_tokens_needing_refresh
+                tokens = get_tokens_needing_refresh(db)
+                return tokens, db
+            except Exception as e:
+                logging.warning("Token refresh query failed: %s", e)
+                db.close()
+                return [], None
+        try:
+            from services.token_refresh import refresh_token
+            tokens, db = await asyncio.to_thread(_run_refresh)
+            if db is not None:
+                for pa in tokens:
+                    import os
+                    await refresh_token(
+                        pa, db,
+                        client_id=os.getenv(f"{pa.platform.upper()}_CLIENT_ID", ""),
+                        client_secret=os.getenv(f"{pa.platform.upper()}_CLIENT_SECRET", ""),
+                    )
+                db.close()
+        except Exception as e:
+            logging.warning("Token refresh loop error: %s", e)
+
+
 async def _platform_scheduler():
     while True:
         def _run_cycle():
@@ -276,10 +306,12 @@ async def lifespan(_app):
     task = asyncio.create_task(process_worker())
     scheduler_task = asyncio.create_task(_platform_scheduler())
     perf_task = asyncio.create_task(_performance_feedback_loop())
+    refresh_task = asyncio.create_task(_token_refresh_loop())
     yield
     task.cancel()
     scheduler_task.cancel()
     perf_task.cancel()
+    refresh_task.cancel()
     try:
         await task
     except asyncio.CancelledError:
@@ -290,5 +322,9 @@ async def lifespan(_app):
         pass
     try:
         await perf_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await refresh_task
     except asyncio.CancelledError:
         pass

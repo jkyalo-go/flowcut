@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, LargeBinary, String, func
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -41,6 +41,24 @@ class CalendarSlot(Base):
     metadata_json = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class PlatformAuth(Base):
+    """Tracks OAuth tokens for proactive refresh and circuit-breaker integration."""
+    __tablename__ = "platform_auth"
+
+    id = Column(UUID_SQL_TYPE, primary_key=True, default=new_uuid)
+    workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=False)
+    platform = Column(String, nullable=False)
+    access_token_enc = Column(LargeBinary, nullable=True)
+    refresh_token_enc = Column(LargeBinary, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
+    status = Column(String, nullable=False, default="active")
+    error_message = Column(String, nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    workspace = relationship("Workspace")
 
 
 class PlatformAuthState(Base):

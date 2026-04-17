@@ -72,3 +72,22 @@ def test_token_roundtrip_encryption():
     ciphertext = encrypt_token(plaintext, key)
     assert ciphertext != plaintext.encode()
     assert decrypt_token(ciphertext, key) == plaintext
+
+
+def test_token_refresh_skips_non_expiring(db, workspace_a):
+    from datetime import datetime, timedelta
+    from domain.platforms import PlatformAuth
+    from services.token_crypto import encrypt_token
+    ws_id, _ = workspace_a
+    # Token expires in 1 hour — should NOT be refreshed (window is 5 minutes)
+    pa = PlatformAuth(
+        workspace_id=ws_id, platform="youtube",
+        access_token_enc=encrypt_token("tok"),
+        token_expires_at=datetime.utcnow() + timedelta(hours=1),
+        status="active",
+    )
+    db.add(pa)
+    db.commit()
+    from services.token_refresh import get_tokens_needing_refresh
+    tokens = get_tokens_needing_refresh(db, refresh_window_minutes=5)
+    assert all(str(t.id) != str(pa.id) for t in tokens)
