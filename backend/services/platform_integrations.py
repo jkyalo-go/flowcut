@@ -10,6 +10,24 @@ from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
+from services.circuit_breaker import get_breaker, CircuitOpen
+from services.rate_limiter import SlidingWindowRateLimiter, RateLimitExceeded
+
+_rate_limiter = SlidingWindowRateLimiter(max_calls=20, window_sec=86400)
+
+
+async def publish_with_resilience(workspace_id: str, platform: str, publish_fn, *args, **kwargs):
+    breaker = get_breaker(platform)
+    breaker.check()  # raises CircuitOpen if open
+    _rate_limiter.check_and_record(workspace_id, platform)  # raises RateLimitExceeded
+    try:
+        result = await publish_fn(*args, **kwargs)
+        breaker.record_success()
+        return result
+    except Exception as e:
+        breaker.record_failure()
+        raise
+
 import httpx
 from sqlalchemy.orm import Session
 
