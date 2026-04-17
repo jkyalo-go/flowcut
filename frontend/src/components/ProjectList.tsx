@@ -85,14 +85,12 @@ export function ProjectList() {
         '/api/uploads/sessions',
         { workspace_id: workspace.id, filename: file.name, total_size: file.size, media_type: file.type }
       )
-      const form = new FormData()
-      form.append('file', file)
       const token = getStoredToken()
       await fetch(`/api/uploads/sessions/${session.id}`, {
         method: 'PUT',
         credentials: 'include',
         headers: token ? { 'X-FlowCut-Token': token } : {},
-        body: form,
+        body: file,
       })
       setUploadPct(80)
       await api.post(`/api/uploads/sessions/${session.id}/complete`, {})
