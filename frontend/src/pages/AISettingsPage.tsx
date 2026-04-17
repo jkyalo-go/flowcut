@@ -97,8 +97,7 @@ export function AISettingsPage() {
       await api.delete(`/api/ai/credentials/${id}`)
       setCredentials((prev) => prev.filter((c) => c.id !== id))
     } catch (err) {
-      // silent catch per spec — log for debugging only
-      void err
+      setError(err instanceof Error ? err.message : 'Failed to remove credential')
     }
   }
 
@@ -278,8 +277,8 @@ export function AISettingsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {usage.map((row, i) => (
-                          <tr key={i}>
+                        {usage.map((row) => (
+                          <tr key={`${row.task_type}-${row.provider}`}>
                             <td className="py-2">{row.task_type}</td>
                             <td className="py-2 text-muted-foreground">{row.provider}</td>
                             <td className="py-2 text-right">{row.count}</td>
