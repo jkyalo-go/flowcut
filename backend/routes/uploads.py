@@ -26,10 +26,9 @@ def create_upload_session(
 ):
     if body.workspace_id != workspace.id:
         raise HTTPException(403, "Workspace mismatch")
-    if body.total_size is not None:
-        size_mb = float(body.total_size) / (1024 * 1024)
-        if not check_quota(workspace.id, "storage_mb", size_mb, db):
-            raise HTTPException(status_code=429, detail="Storage quota exceeded for this billing period")
+    size_mb = float(body.total_size) / (1024 * 1024) if body.total_size is not None else 0.0
+    if not check_quota(workspace.id, "storage_mb", size_mb, db):
+        raise HTTPException(status_code=429, detail="Storage quota exceeded for this billing period")
     storage_path = create_upload_path(workspace.id, body.filename)
     session = UploadSession(
         workspace_id=workspace.id,

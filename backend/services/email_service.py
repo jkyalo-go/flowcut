@@ -1,27 +1,34 @@
 import logging
 import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
 
 
 def send_email(to_email: str, subject: str, html_body: str) -> bool:
-    api_key = os.getenv("SENDGRID_API_KEY", "")
-    from_email = os.getenv("SENDGRID_FROM_EMAIL", "noreply@flowcut.ai")
-    if not api_key:
-        logger.warning("SENDGRID_API_KEY not set — email skipped")
+    host = os.getenv("SMTP_HOST", "")
+    if not host:
+        logger.warning("SMTP_HOST not set — email skipped")
         return False
+    port = int(os.getenv("SMTP_PORT", "587"))
+    user = os.getenv("SMTP_USER", "")
+    password = os.getenv("SMTP_PASSWORD", "")
+    from_email = os.getenv("SMTP_FROM_EMAIL", "noreply@flowcut.ai")
     try:
-        import sendgrid
-        from sendgrid.helpers.mail import Mail
-        message = Mail(
-            from_email=from_email,
-            to_emails=to_email,
-            subject=subject,
-            html_content=html_body,
-        )
-        sg = sendgrid.SendGridAPIClient(api_key=api_key)
-        response = sg.send(message)
-        return response.status_code in (200, 202)
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = from_email
+        msg["To"] = to_email
+        msg.attach(MIMEText(html_body, "html"))
+        with smtplib.SMTP(host, port) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            if user:
+                smtp.login(user, password)
+            smtp.sendmail(from_email, to_email, msg.as_string())
+        return True
     except Exception as e:
-        logger.error(f"SendGrid error sending to {to_email}: {e}")
+        logger.error("SMTP error sending to %s: %s", to_email, e)
         return False
