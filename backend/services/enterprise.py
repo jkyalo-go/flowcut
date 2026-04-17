@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
@@ -55,3 +56,41 @@ def record_admin_action(
     db.commit()
     db.refresh(row)
     return row
+
+
+def check_quota(workspace_id: str, dimension: str, requested_quantity: float, db) -> bool:
+    """Returns True if quota remains, False if exceeded.
+
+    Uses QuotaPolicy for the limit and aggregates UsageLedger for the current
+    period (calendar month) usage. If no QuotaPolicy exists, defaults to
+    unlimited (returns True).
+    """
+    from domain.enterprise import QuotaPolicy
+
+    policy = db.query(QuotaPolicy).filter(
+        QuotaPolicy.workspace_id == workspace_id,
+    ).first()
+    if not policy:
+        return True  # no policy configured → unlimited
+
+    # Map dimension names to QuotaPolicy columns
+    limit_map = {
+        "storage_mb": policy.storage_quota_mb,
+        "ai_spend_usd": policy.ai_spend_cap_usd,
+        "render_minutes": policy.render_minutes_quota,
+    }
+    limit_value = limit_map.get(dimension)
+    if limit_value is None:
+        return True  # unknown dimension → allow
+    if limit_value < 0:
+        return True  # -1 = unlimited
+
+    # Sum usage for the current calendar month
+    period_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
+    result = db.query(UsageLedger).filter(
+        UsageLedger.workspace_id == workspace_id,
+        UsageLedger.category == dimension,
+        UsageLedger.created_at >= period_start,
+    ).all()
+    used = sum(r.quantity for r in result)
+    return (used + requested_quantity) <= limit_value

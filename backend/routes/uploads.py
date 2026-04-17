@@ -11,7 +11,7 @@ from domain.enterprise import OnboardingState
 from domain.media import Clip, UploadSession
 from domain.projects import Project
 from domain.shared import ProcessingStatus
-from services.enterprise import record_usage
+from services.enterprise import check_quota, record_usage
 from services.storage import create_upload_path, finalize_uploaded_file, temp_upload_path
 from workers.queue import processing_queue
 
@@ -26,6 +26,10 @@ def create_upload_session(
 ):
     if body.workspace_id != workspace.id:
         raise HTTPException(403, "Workspace mismatch")
+    if body.total_size is not None:
+        size_mb = float(body.total_size) / (1024 * 1024)
+        if not check_quota(workspace.id, "storage_mb", size_mb, db):
+            raise HTTPException(status_code=429, detail="Storage quota exceeded for this billing period")
     storage_path = create_upload_path(workspace.id, body.filename)
     session = UploadSession(
         workspace_id=workspace.id,
