@@ -161,6 +161,19 @@ def test_list_assets_scoped_to_workspace(client, db, workspace_a, workspace_b):
     assert str(asset.id) not in ids_b
 
 
+def test_generate_thumbnails_blocked_for_foreign_workspace(client, db, workspace_a, workspace_b):
+    ws_a_id, _token_a = workspace_a
+    _ws_b_id, token_b = workspace_b
+    project_id = _make_project(db, ws_a_id)
+
+    resp = client.post(
+        f"/api/projects/{project_id}/generate-thumbnails",  # mounted under /api/projects, not /api/generate
+        json={"title": "Test", "skip_indices": []},
+        headers={"Authorization": f"Bearer {token_b}"},
+    )
+    assert resp.status_code == 404
+
+
 def test_two_workspaces_can_store_same_setting_key(db, workspace_a, workspace_b):
     from domain.projects import AppSettings
     ws_a_id, _ = workspace_a
