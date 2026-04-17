@@ -5,7 +5,6 @@ from database import get_db
 from dependencies import get_current_workspace
 from contracts.media import SubscribeAutoResponse, SubscribeItemResponse, SubscribeItemUpdate
 from domain.media import SubscribeItem, TimelineItem
-from domain.projects import Project
 from services.subscribe_overlay_generator import generate_subscribe_overlays
 from routes.titles import _build_timestamped_transcript
 from routes import require_project

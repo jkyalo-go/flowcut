@@ -10,7 +10,6 @@ from database import get_db
 from dependencies import get_current_workspace
 from contracts.media import TrackerAutoResponse, TrackerItemResponse
 from domain.media import TimelineItem, TrackerItem
-from domain.projects import Project
 from domain.shared import ClipType
 from services.tracker_generator import generate_tracker_overlay
 from config import PROCESSED_DIR

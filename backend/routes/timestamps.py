@@ -8,7 +8,6 @@ from database import get_db
 from dependencies import get_current_workspace
 from contracts.media import TimestampAutoResponse, TimestampItemResponse, TimestampItemUpdate
 from domain.media import TimelineItem, TimestampItem
-from domain.projects import Project
 from services.timestamp_generator import generate_timestamps
 from routes.settings import _get_setting
 from routes import require_project

@@ -5,7 +5,6 @@ from database import get_db
 from dependencies import get_current_workspace
 from contracts.media import CaptionAutoResponse, CaptionItemResponse, CaptionItemUpdate
 from domain.media import CaptionItem, TimelineItem
-from domain.projects import Project
 from routes import require_project
 
 router = APIRouter()
