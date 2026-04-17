@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/router'
 import '@/styles/globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { AppShell } from '@/components/AppShell'
 import { useAuthStore } from '@/stores/authStore'
 import { api, ApiError, storeToken } from '@/lib/api'
 import type { User, Workspace } from '@/types'
@@ -56,7 +57,13 @@ export default function App({ Component, pageProps }: AppProps) {
 
   return (
     <ErrorBoundary>
-      <Component {...pageProps} />
+      {isPublicPath ? (
+        <Component {...pageProps} />
+      ) : (
+        <AppShell>
+          <Component {...pageProps} />
+        </AppShell>
+      )}
     </ErrorBoundary>
   )
 }
