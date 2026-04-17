@@ -1,7 +1,7 @@
 try:
-    from ..routes import auth, enterprise, settings, ws, workspaces
+    from ..routes import auth, enterprise, settings, style_profiles, ws, workspaces
 except ImportError:
-    from routes import auth, enterprise, settings, ws, workspaces
+    from routes import auth, enterprise, settings, style_profiles, ws, workspaces
 
 from .types import RouterModule
 
@@ -11,4 +11,5 @@ CORE_MODULES = [
     RouterModule(prefix="/api/enterprise", tags=["enterprise"], router=enterprise.router),
     RouterModule(prefix="/api/settings", tags=["settings"], router=settings.router),
     RouterModule(prefix="/ws", tags=["websocket"], router=ws.router),
+    RouterModule(prefix="/api", tags=["style-profiles"], router=style_profiles.router),
 ]

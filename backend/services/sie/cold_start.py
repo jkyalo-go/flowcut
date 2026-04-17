@@ -50,3 +50,9 @@ GENRE_CENTROIDS: dict[str, dict] = {
         "max_cuts_per_min": 15,
     },
 }
+
+SUPPORTED_GENRES = list(GENRE_CENTROIDS.keys())
+
+
+def get_genre_centroid(genre: str) -> dict:
+    return GENRE_CENTROIDS.get(genre, GENRE_CENTROIDS["vlog"])
