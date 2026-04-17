@@ -16,6 +16,29 @@ const PLATFORM_LABELS: Record<string, string> = {
   x: 'X (Twitter)',
 }
 
+const PLATFORM_LOGO: Record<string, string> = {
+  youtube: '/logos/youtube.svg',
+  tiktok: '/logos/tiktok.svg',
+  instagram_reels: '/logos/instagram.svg',
+  linkedin: '/logos/linkedin.svg',
+  x: '/logos/x.svg',
+}
+
+function PlatformLogo({ platform, size = 20 }: { platform: string; size?: number }) {
+  const src = PLATFORM_LOGO[platform]
+  if (!src) return null
+  return (
+    <img
+      src={src}
+      alt={PLATFORM_LABELS[platform] ?? platform}
+      width={size}
+      height={size}
+      className="shrink-0"
+      aria-hidden="true"
+    />
+  )
+}
+
 export function PlatformsPage() {
   const [connections, setConnections] = useState<PlatformConnection[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,11 +124,14 @@ export function PlatformsPage() {
             <div className="divide-y">
               {connections.map((conn) => (
                 <div key={conn.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {PLATFORM_LABELS[conn.platform] ?? conn.platform}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{conn.display_name}</p>
+                  <div className="flex items-center gap-3">
+                    <PlatformLogo platform={conn.platform} size={24} />
+                    <div>
+                      <p className="text-sm font-medium">
+                        {PLATFORM_LABELS[conn.platform] ?? conn.platform}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{conn.display_name}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge variant={conn.status === 'active' ? 'default' : 'secondary'}>
@@ -138,9 +164,12 @@ export function PlatformsPage() {
               const isRedirecting = redirecting === platform
               return (
                 <div key={platform} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {PLATFORM_LABELS[platform] ?? platform}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <PlatformLogo platform={platform} size={20} />
+                    <span className="text-sm font-medium">
+                      {PLATFORM_LABELS[platform] ?? platform}
+                    </span>
+                  </div>
                   <Button
                     size="sm"
                     onClick={() => handleConnect(platform)}

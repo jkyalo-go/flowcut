@@ -25,6 +25,27 @@ interface UsageRow {
 
 const BYOK_PROVIDERS = ['anthropic', 'openai', 'vertex', 'deepgram', 'dashscope']
 
+const PROVIDER_LOGO: Record<string, string> = {
+  anthropic: '/logos/anthropic.svg',
+  openai: '/logos/openai.svg',
+  vertex: '/logos/googlecloud.svg',
+}
+
+function ProviderLogo({ provider }: { provider: string }) {
+  const src = PROVIDER_LOGO[provider]
+  if (!src) return null
+  return (
+    <img
+      src={src}
+      alt={provider}
+      width={18}
+      height={18}
+      className="shrink-0"
+      aria-hidden="true"
+    />
+  )
+}
+
 export function AISettingsPage() {
   const [providers, setProviders] = useState<AIProviderConfig[]>([])
   const [credentials, setCredentials] = useState<AICredential[]>([])
@@ -139,17 +160,20 @@ export function AISettingsPage() {
                   <div className="divide-y">
                     {providers.map((config) => (
                       <div key={config.id} className="flex items-start justify-between py-4">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">{config.display_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {config.provider} / {config.model_key}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {config.task_types.map((t) => (
-                              <Badge key={t} variant="secondary" className="text-xs">
-                                {t}
-                              </Badge>
-                            ))}
+                        <div className="flex items-start gap-3">
+                          <ProviderLogo provider={config.provider} />
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium">{config.display_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {config.provider} / {config.model_key}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {config.task_types.map((t) => (
+                                <Badge key={t} variant="secondary" className="text-xs">
+                                  {t}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 ml-4">
@@ -227,13 +251,16 @@ export function AISettingsPage() {
                     <div className="divide-y">
                       {credentials.map((cred) => (
                         <div key={cred.id} className="flex items-center justify-between py-3">
-                          <div className="space-y-0.5">
-                            <p className="text-sm font-medium">{cred.provider}</p>
-                            {cred.created_at && (
-                              <p className="text-xs text-muted-foreground">
-                                Added {new Date(cred.created_at).toLocaleDateString()}
-                              </p>
-                            )}
+                          <div className="flex items-center gap-3">
+                            <ProviderLogo provider={cred.provider} />
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-medium">{cred.provider}</p>
+                              {cred.created_at && (
+                                <p className="text-xs text-muted-foreground">
+                                  Added {new Date(cred.created_at).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-3">
                             <Badge variant={cred.is_active ? 'default' : 'secondary'}>

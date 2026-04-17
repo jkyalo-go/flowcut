@@ -197,6 +197,7 @@ export function YouTubeUpload() {
         {auth.authenticated ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <img src="/logos/youtube.svg" alt="YouTube" width={16} height={16} aria-hidden="true" />
               <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
               <span className="text-sm text-muted-foreground">
                 Connected as <strong>{auth.channelName}</strong>
@@ -208,6 +209,7 @@ export function YouTubeUpload() {
           </div>
         ) : (
           <Button variant="default" size="sm" onClick={connect} disabled={connecting}>
+            <img src="/logos/youtube.svg" alt="" width={16} height={16} aria-hidden="true" className="mr-2 brightness-0 invert" />
             {connecting ? "Waiting for authorization..." : "Connect YouTube"}
           </Button>
         )}
