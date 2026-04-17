@@ -19,7 +19,21 @@ from services.audit import create_notification, record_audit
 from services.enterprise import record_usage
 from services.platform_auth import ensure_valid_platform_connection
 from services.storage import signed_url_for
+from services.token_crypto import decrypt_token
 from services.youtube_service import upload_video
+
+import base64
+
+
+def _decrypt_stored_token(stored: str | None) -> str | None:
+    """Decrypt a base64-encoded AES-GCM ciphertext token from the DB."""
+    if not stored:
+        return None
+    try:
+        return decrypt_token(base64.b64decode(stored))
+    except Exception:
+        # Fallback for plaintext tokens stored before encryption was introduced
+        return stored
 
 
 class PlatformPublishError(RuntimeError):
@@ -113,7 +127,10 @@ def _require_account_id(connection: PlatformConnection, field_name: str = "accou
 def _auth_headers(connection: PlatformConnection) -> dict[str, str]:
     if not connection.access_token:
         raise PlatformPublishError("Platform connection is missing an access token.")
-    return {"Authorization": f"Bearer {connection.access_token}"}
+    raw_token = _decrypt_stored_token(connection.access_token)
+    if not raw_token:
+        raise PlatformPublishError("Platform connection is missing an access token.")
+    return {"Authorization": f"Bearer {raw_token}"}
 
 
 def _x_create_tweet(connection: PlatformConnection, status_text: str, media_id: str | None) -> PublishResult:

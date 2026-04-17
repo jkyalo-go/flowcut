@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import datetime, timedelta
 from typing import Callable
@@ -15,6 +16,24 @@ from domain.shared import PlatformType
 from config import (
     YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI, PROCESSED_DIR,
 )
+from services.token_crypto import decrypt_token, encrypt_token
+
+
+def _enc(token: str | None) -> str | None:
+    """Encrypt and base64-encode a token for DB storage."""
+    if not token:
+        return None
+    return base64.b64encode(encrypt_token(token)).decode()
+
+
+def _dec(stored: str | None) -> str | None:
+    """Decrypt a base64-encoded AES-GCM token from the DB."""
+    if not stored:
+        return None
+    try:
+        return decrypt_token(base64.b64decode(stored))
+    except Exception:
+        return stored  # fallback for plaintext tokens stored before encryption
 
 logger = logging.getLogger(__name__)
 
@@ -89,8 +108,8 @@ def exchange_code(code: str, db: Session, workspace_id: str | None = None) -> st
         workspace_id=workspace_id,
         platform=PlatformType.YOUTUBE,
         account_name=channel_name,
-        access_token=creds.token,
-        refresh_token=creds.refresh_token,
+        access_token=_enc(creds.token),
+        refresh_token=_enc(creds.refresh_token),
         token_expiry=creds.expiry,
     )
     db.add(cred)
@@ -111,8 +130,8 @@ def get_credentials(db: Session, workspace_id: str | None = None, connection: Pl
         return None
 
     creds = Credentials(
-        token=row.access_token,
-        refresh_token=row.refresh_token,
+        token=_dec(row.access_token),
+        refresh_token=_dec(row.refresh_token),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=YOUTUBE_CLIENT_ID,
         client_secret=YOUTUBE_CLIENT_SECRET,
@@ -123,7 +142,7 @@ def get_credentials(db: Session, workspace_id: str | None = None, connection: Pl
     if creds.expired and creds.refresh_token:
         try:
             creds.refresh(google.auth.transport.requests.Request())
-            row.access_token = creds.token
+            row.access_token = _enc(creds.token)
             row.token_expiry = creds.expiry
             db.commit()
             logger.info("Refreshed YouTube access token")
@@ -245,7 +264,7 @@ def revoke_credentials(db: Session, workspace_id: str | None = None):
             import requests
             requests.post(
                 "https://oauth2.googleapis.com/revoke",
-                params={"token": row.access_token},
+                params={"token": _dec(row.access_token)},
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
         except Exception as e:

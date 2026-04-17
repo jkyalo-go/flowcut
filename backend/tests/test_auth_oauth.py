@@ -63,3 +63,12 @@ def test_oauth_callback_rejects_invalid_state(client):
     )
     assert resp.status_code == 400
     assert "state" in resp.json()["detail"].lower()
+
+
+def test_token_roundtrip_encryption():
+    from services.token_crypto import encrypt_token, decrypt_token
+    key = b"0" * 32  # 32-byte test key
+    plaintext = "ya29.access_token_here"
+    ciphertext = encrypt_token(plaintext, key)
+    assert ciphertext != plaintext.encode()
+    assert decrypt_token(ciphertext, key) == plaintext

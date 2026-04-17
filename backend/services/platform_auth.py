@@ -12,6 +12,26 @@ from urllib.parse import urlencode
 import httpx
 from sqlalchemy.orm import Session
 
+from services.token_crypto import decrypt_token, encrypt_token
+
+
+def _encrypt_token_str(token: str | None) -> str | None:
+    """Encrypt a token string and return base64-encoded ciphertext for DB storage."""
+    if not token:
+        return None
+    return base64.b64encode(encrypt_token(token)).decode()
+
+
+def _decrypt_token_str(stored: str | None) -> str | None:
+    """Decrypt a base64-encoded ciphertext token from the DB back to plaintext."""
+    if not stored:
+        return None
+    try:
+        return decrypt_token(base64.b64decode(stored))
+    except Exception:
+        # Fallback: token may have been stored as plaintext before encryption was introduced
+        return stored
+
 from config import (
     INSTAGRAM_CLIENT_ID,
     INSTAGRAM_CLIENT_SECRET,
@@ -99,8 +119,8 @@ def _upsert_connection(
     if row:
         row.account_name = account_name or row.account_name
         row.account_id = account_id or row.account_id
-        row.access_token = access_token or row.access_token
-        row.refresh_token = refresh_token or row.refresh_token
+        row.access_token = _encrypt_token_str(access_token) if access_token else row.access_token
+        row.refresh_token = _encrypt_token_str(refresh_token) if refresh_token else row.refresh_token
         row.token_expiry = token_expiry or row.token_expiry
         row.metadata_json = metadata_json
     else:
@@ -109,8 +129,8 @@ def _upsert_connection(
             platform=platform,
             account_name=account_name,
             account_id=account_id,
-            access_token=access_token,
-            refresh_token=refresh_token,
+            access_token=_encrypt_token_str(access_token),
+            refresh_token=_encrypt_token_str(refresh_token),
             token_expiry=token_expiry,
             metadata_json=metadata_json,
         )
@@ -418,6 +438,9 @@ def ensure_valid_platform_connection(db: Session, connection: PlatformConnection
     if not connection.refresh_token:
         return connection
 
+    # Decrypt the stored refresh token before sending it to the platform API
+    raw_refresh_token = _decrypt_token_str(connection.refresh_token)
+
     refreshed: dict[str, Any] | None = None
     if platform == PlatformType.TIKTOK.value:
         with httpx.Client(timeout=120) as client:
@@ -427,7 +450,7 @@ def ensure_valid_platform_connection(db: Session, connection: PlatformConnection
                     "client_key": TIKTOK_CLIENT_ID,
                     "client_secret": TIKTOK_CLIENT_SECRET,
                     "grant_type": "refresh_token",
-                    "refresh_token": connection.refresh_token,
+                    "refresh_token": raw_refresh_token,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
@@ -439,7 +462,7 @@ def ensure_valid_platform_connection(db: Session, connection: PlatformConnection
                 "https://www.linkedin.com/oauth/v2/accessToken",
                 data={
                     "grant_type": "refresh_token",
-                    "refresh_token": connection.refresh_token,
+                    "refresh_token": raw_refresh_token,
                     "client_id": LINKEDIN_CLIENT_ID,
                     "client_secret": LINKEDIN_CLIENT_SECRET,
                 },
@@ -453,7 +476,7 @@ def ensure_valid_platform_connection(db: Session, connection: PlatformConnection
                 "https://api.x.com/2/oauth2/token",
                 data={
                     "grant_type": "refresh_token",
-                    "refresh_token": connection.refresh_token,
+                    "refresh_token": raw_refresh_token,
                     "client_id": X_CLIENT_ID,
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -465,8 +488,11 @@ def ensure_valid_platform_connection(db: Session, connection: PlatformConnection
     if not refreshed:
         return connection
 
-    connection.access_token = refreshed.get("access_token") or connection.access_token
-    connection.refresh_token = refreshed.get("refresh_token") or connection.refresh_token
+    # Re-encrypt new tokens before persisting
+    new_access = refreshed.get("access_token")
+    new_refresh = refreshed.get("refresh_token")
+    connection.access_token = _encrypt_token_str(new_access) if new_access else connection.access_token
+    connection.refresh_token = _encrypt_token_str(new_refresh) if new_refresh else connection.refresh_token
     expires_in = int(refreshed.get("expires_in") or 0)
     if expires_in:
         connection.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
