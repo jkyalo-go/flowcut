@@ -2,8 +2,9 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Project, Clip
-from schemas import ThumbnailRequest, MetadataRequest
+from contracts.generation import MetadataRequest, ThumbnailRequest
+from domain.media import Clip
+from domain.projects import Project
 from services.title_generator import generate_titles, generate_description, generate_tags
 from services.thumbnail_generator import extract_frame, compose_thumbnail
 from config import PROCESSED_DIR
@@ -12,7 +13,7 @@ router = APIRouter()
 
 
 @router.post("/{project_id}/generate-titles")
-def gen_titles(project_id: int, db: Session = Depends(get_db)):
+def gen_titles(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -28,7 +29,7 @@ def gen_titles(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "No transcripts available. Process some clips first.")
 
     try:
-        titles = generate_titles(combined)
+        titles = generate_titles(db, project.workspace, combined)
     except RuntimeError as e:
         raise HTTPException(500, str(e))
     except Exception as e:
@@ -37,7 +38,7 @@ def gen_titles(project_id: int, db: Session = Depends(get_db)):
     return {"titles": titles}
 
 
-def _get_combined_transcript(project_id: int, db: Session) -> str:
+def _get_combined_transcript(project_id: str, db: Session) -> str:
     clips = db.query(Clip).filter(
         Clip.project_id == project_id,
         Clip.transcript.isnot(None),
@@ -50,7 +51,7 @@ def _get_combined_transcript(project_id: int, db: Session) -> str:
 
 
 @router.post("/{project_id}/generate-description")
-def gen_description(project_id: int, body: MetadataRequest, db: Session = Depends(get_db)):
+def gen_description(project_id: str, body: MetadataRequest, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -58,7 +59,7 @@ def gen_description(project_id: int, body: MetadataRequest, db: Session = Depend
     combined = _get_combined_transcript(project_id, db)
 
     try:
-        description = generate_description(combined, body.title, body.system_prompt)
+        description = generate_description(db, project.workspace, combined, body.title, body.system_prompt)
     except RuntimeError as e:
         raise HTTPException(500, str(e))
     except Exception as e:
@@ -68,7 +69,7 @@ def gen_description(project_id: int, body: MetadataRequest, db: Session = Depend
 
 
 @router.post("/{project_id}/generate-tags")
-def gen_tags(project_id: int, body: MetadataRequest, db: Session = Depends(get_db)):
+def gen_tags(project_id: str, body: MetadataRequest, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -76,7 +77,7 @@ def gen_tags(project_id: int, body: MetadataRequest, db: Session = Depends(get_d
     combined = _get_combined_transcript(project_id, db)
 
     try:
-        tags = generate_tags(combined, body.title)
+        tags = generate_tags(db, project.workspace, combined, body.title)
     except RuntimeError as e:
         raise HTTPException(500, str(e))
     except Exception as e:
@@ -86,7 +87,7 @@ def gen_tags(project_id: int, body: MetadataRequest, db: Session = Depends(get_d
 
 
 @router.post("/{project_id}/generate-thumbnails")
-async def gen_thumbnails(project_id: int, body: ThumbnailRequest, db: Session = Depends(get_db)):
+async def gen_thumbnails(project_id: str, body: ThumbnailRequest, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")

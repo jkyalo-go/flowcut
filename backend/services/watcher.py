@@ -6,14 +6,15 @@ from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from database import SessionLocal
-from models import Clip, ProcessingStatus
+from domain.media import Clip
+from domain.shared import ProcessingStatus
 from routes.ws import broadcast
 from config import VIDEO_EXTENSIONS
 from services.silence_remover import get_creation_time
 
 logger = logging.getLogger(__name__)
 
-_active_observers: dict[int, Observer] = {}
+_active_observers: dict[str, Observer] = {}
 _processing_queue: asyncio.Queue | None = None
 _main_loop: asyncio.AbstractEventLoop | None = None
 
@@ -25,7 +26,7 @@ def set_queue(queue: asyncio.Queue):
 
 
 class VideoFileHandler(FileSystemEventHandler):
-    def __init__(self, project_id: int, loop: asyncio.AbstractEventLoop):
+    def __init__(self, project_id: str, loop: asyncio.AbstractEventLoop):
         self.project_id = project_id
         self.loop = loop
 
@@ -104,7 +105,7 @@ async def _wait_for_stable_size(path: str, interval: float = 1.0, checks: int = 
         prev_size = current_size
 
 
-def start_watching(project_id: int, directory: str) -> list[int]:
+def start_watching(project_id: str, directory: str) -> list[str]:
     """Start watching a directory. Returns list of newly created clip IDs from existing files."""
     clip_ids = _scan_existing(project_id, directory)
     logger.info(f"[WATCHER] start_watching project={project_id} dir={directory} existing_clips={len(clip_ids)} active_observers={list(_active_observers.keys())}")
@@ -124,13 +125,13 @@ def start_watching(project_id: int, directory: str) -> list[int]:
     return clip_ids
 
 
-def _broadcast_sync(project_id: int, event: str, data: dict):
+def _broadcast_sync(project_id: str, event: str, data: dict):
     """Fire-and-forget broadcast from sync code."""
     if _main_loop and _main_loop.is_running():
         asyncio.run_coroutine_threadsafe(broadcast(project_id, event, data), _main_loop)
 
 
-def _scan_existing(project_id: int, directory: str) -> list[int]:
+def _scan_existing(project_id: str, directory: str) -> list[str]:
     """Scan directory for video files, create Clip rows sorted by creation_time. Returns new clip IDs."""
     db = SessionLocal()
     new_ids = []
@@ -194,7 +195,7 @@ def _scan_existing(project_id: int, directory: str) -> list[int]:
     return new_ids
 
 
-async def _queue_clips(clip_ids: list[int]):
+async def _queue_clips(clip_ids: list[str]):
     for clip_id in clip_ids:
         await _processing_queue.put(clip_id)
 
@@ -214,7 +215,7 @@ def get_watcher_state() -> dict:
     return state
 
 
-def stop_watching(project_id: int):
+def stop_watching(project_id: str):
     obs = _active_observers.pop(project_id, None)
     if obs:
         obs.stop()

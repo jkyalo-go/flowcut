@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import TrackerItem, TimelineItem, Project, ClipType
-from schemas import TrackerItemResponse, TrackerAutoResponse
+from contracts.media import TrackerAutoResponse, TrackerItemResponse
+from domain.media import TimelineItem, TrackerItem
+from domain.projects import Project
+from domain.shared import ClipType
 from services.tracker_generator import generate_tracker_overlay
 from config import PROCESSED_DIR
 
@@ -27,7 +29,7 @@ def _overlay_url(overlay_path: str) -> str:
 
 
 @router.get("/{project_id}", response_model=TrackerAutoResponse)
-def get_trackers(project_id: int, db: Session = Depends(get_db)):
+def get_trackers(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -52,7 +54,7 @@ def get_trackers(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=TrackerAutoResponse)
-async def auto_generate_trackers(project_id: int, db: Session = Depends(get_db)):
+async def auto_generate_trackers(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -151,7 +153,7 @@ async def auto_generate_trackers(project_id: int, db: Session = Depends(get_db))
 
 
 @router.delete("/{project_id}")
-def clear_trackers(project_id: int, db: Session = Depends(get_db)):
+def clear_trackers(project_id: str, db: Session = Depends(get_db)):
     db.query(TrackerItem).filter(TrackerItem.project_id == project_id).delete()
     db.commit()
 

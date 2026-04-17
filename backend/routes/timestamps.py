@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import TimestampItem, TimelineItem, Project
-from schemas import TimestampItemResponse, TimestampItemUpdate, TimestampAutoResponse
+from contracts.media import TimestampAutoResponse, TimestampItemResponse, TimestampItemUpdate
+from domain.media import TimelineItem, TimestampItem
+from domain.projects import Project
 from services.timestamp_generator import generate_timestamps
 from routes.settings import _get_setting
 
@@ -61,7 +62,7 @@ def _build_datetime_transcript(items: list[TimelineItem], tz: ZoneInfo) -> tuple
 
 
 @router.get("/{project_id}", response_model=TimestampAutoResponse)
-def get_timestamps(project_id: int, db: Session = Depends(get_db)):
+def get_timestamps(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -76,7 +77,7 @@ def get_timestamps(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=TimestampAutoResponse)
-def auto_generate_timestamps(project_id: int, db: Session = Depends(get_db)):
+def auto_generate_timestamps(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -119,7 +120,7 @@ def auto_generate_timestamps(project_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}/items/{item_id}", response_model=TimestampItemResponse)
 def update_timestamp_item(
-    project_id: int, item_id: int, body: TimestampItemUpdate, db: Session = Depends(get_db)
+    project_id: str, item_id: str, body: TimestampItemUpdate, db: Session = Depends(get_db)
 ):
     item = (
         db.query(TimestampItem)
@@ -138,14 +139,14 @@ def update_timestamp_item(
 
 
 @router.delete("/{project_id}")
-def clear_timestamps(project_id: int, db: Session = Depends(get_db)):
+def clear_timestamps(project_id: str, db: Session = Depends(get_db)):
     db.query(TimestampItem).filter(TimestampItem.project_id == project_id).delete()
     db.commit()
     return {"ok": True}
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def delete_timestamp_item(project_id: int, item_id: int, db: Session = Depends(get_db)):
+def delete_timestamp_item(project_id: str, item_id: str, db: Session = Depends(get_db)):
     rows = (
         db.query(TimestampItem)
         .filter(TimestampItem.id == item_id, TimestampItem.project_id == project_id)

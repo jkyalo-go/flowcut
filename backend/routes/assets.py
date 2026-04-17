@@ -7,8 +7,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Asset, AssetType
-from schemas import AssetResponse
+from contracts.media import AssetResponse
+from domain.media import Asset
+from domain.shared import AssetType
 from config import ASSETS_DIR, AUDIO_EXTENSIONS
 
 router = APIRouter()
@@ -75,7 +76,7 @@ async def upload_asset(
 
 
 @router.delete("/{asset_id}")
-def delete_asset(asset_id: int, db: Session = Depends(get_db)):
+def delete_asset(asset_id: str, db: Session = Depends(get_db)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(404, "Asset not found")
@@ -86,7 +87,7 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{asset_id}/file")
-def serve_asset_file(asset_id: int, db: Session = Depends(get_db)):
+def serve_asset_file(asset_id: str, db: Session = Depends(get_db)):
     asset = db.query(Asset).filter(Asset.id == asset_id).first()
     if not asset:
         raise HTTPException(404, "Asset not found")

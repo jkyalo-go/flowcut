@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import TitleItem, TimelineItem, Project
-from schemas import TitleItemResponse, TitleItemUpdate, TitleAutoResponse
+from contracts.media import TitleAutoResponse, TitleItemResponse, TitleItemUpdate
+from domain.media import TimelineItem, TitleItem
+from domain.projects import Project
 from services.title_overlay_generator import generate_title_overlays
 
 router = APIRouter()
@@ -13,7 +14,7 @@ def _build_timestamped_transcript(items: list[TimelineItem]) -> tuple[str, float
     """Walk ordered timeline items and produce a timestamped transcript string."""
     parts = []
     cursor = 0.0
-    seen_clip_ids: set[int] = set()
+    seen_clip_ids: set[str] = set()
     for item in items:
         if item.sub_clip_id and item.sub_clip:
             sub = item.sub_clip
@@ -43,7 +44,7 @@ def _build_timestamped_transcript(items: list[TimelineItem]) -> tuple[str, float
 
 
 @router.get("/{project_id}", response_model=TitleAutoResponse)
-def get_titles(project_id: int, db: Session = Depends(get_db)):
+def get_titles(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -58,7 +59,7 @@ def get_titles(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=TitleAutoResponse)
-def auto_generate_titles(project_id: int, db: Session = Depends(get_db)):
+def auto_generate_titles(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -74,7 +75,7 @@ def auto_generate_titles(project_id: int, db: Session = Depends(get_db)):
     if not transcript_text or total_duration <= 0:
         raise HTTPException(400, "No transcript available — process clips first")
 
-    overlays = generate_title_overlays(transcript_text, total_duration)
+    overlays = generate_title_overlays(transcript_text, total_duration, project.workspace_id)
 
     # Replace existing titles
     db.query(TitleItem).filter(TitleItem.project_id == project_id).delete()
@@ -99,7 +100,7 @@ def auto_generate_titles(project_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}/items/{item_id}", response_model=TitleItemResponse)
 def update_title_item(
-    project_id: int, item_id: int, body: TitleItemUpdate, db: Session = Depends(get_db)
+    project_id: str, item_id: str, body: TitleItemUpdate, db: Session = Depends(get_db)
 ):
     item = (
         db.query(TitleItem)
@@ -118,14 +119,14 @@ def update_title_item(
 
 
 @router.delete("/{project_id}")
-def clear_titles(project_id: int, db: Session = Depends(get_db)):
+def clear_titles(project_id: str, db: Session = Depends(get_db)):
     db.query(TitleItem).filter(TitleItem.project_id == project_id).delete()
     db.commit()
     return {"ok": True}
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def delete_title_item(project_id: int, item_id: int, db: Session = Depends(get_db)):
+def delete_title_item(project_id: str, item_id: str, db: Session = Depends(get_db)):
     rows = (
         db.query(TitleItem)
         .filter(TitleItem.id == item_id, TitleItem.project_id == project_id)

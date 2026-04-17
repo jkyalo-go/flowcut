@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import SubscribeItem, TimelineItem, Project
-from schemas import SubscribeItemResponse, SubscribeItemUpdate, SubscribeAutoResponse
+from contracts.media import SubscribeAutoResponse, SubscribeItemResponse, SubscribeItemUpdate
+from domain.media import SubscribeItem, TimelineItem
+from domain.projects import Project
 from services.subscribe_overlay_generator import generate_subscribe_overlays
 from routes.titles import _build_timestamped_transcript
 
@@ -11,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/{project_id}", response_model=SubscribeAutoResponse)
-def get_subscribes(project_id: int, db: Session = Depends(get_db)):
+def get_subscribes(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -26,7 +27,7 @@ def get_subscribes(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=SubscribeAutoResponse)
-def auto_generate_subscribes(project_id: int, db: Session = Depends(get_db)):
+def auto_generate_subscribes(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -67,7 +68,7 @@ def auto_generate_subscribes(project_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{project_id}/items/{item_id}", response_model=SubscribeItemResponse)
 def update_subscribe_item(
-    project_id: int, item_id: int, body: SubscribeItemUpdate, db: Session = Depends(get_db)
+    project_id: str, item_id: str, body: SubscribeItemUpdate, db: Session = Depends(get_db)
 ):
     item = (
         db.query(SubscribeItem)
@@ -86,14 +87,14 @@ def update_subscribe_item(
 
 
 @router.delete("/{project_id}")
-def clear_subscribes(project_id: int, db: Session = Depends(get_db)):
+def clear_subscribes(project_id: str, db: Session = Depends(get_db)):
     db.query(SubscribeItem).filter(SubscribeItem.project_id == project_id).delete()
     db.commit()
     return {"ok": True}
 
 
 @router.delete("/{project_id}/items/{item_id}")
-def delete_subscribe_item(project_id: int, item_id: int, db: Session = Depends(get_db)):
+def delete_subscribe_item(project_id: str, item_id: str, db: Session = Depends(get_db)):
     rows = (
         db.query(SubscribeItem)
         .filter(SubscribeItem.id == item_id, SubscribeItem.project_id == project_id)

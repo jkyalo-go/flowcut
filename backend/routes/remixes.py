@@ -5,11 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import (
-    Clip, ClipType, Project, SubClip, TimelineItem,
-    TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem,
+from contracts.media import RemixAutoResponse, TimelineItemResponse
+from domain.media import (
+    CaptionItem,
+    Clip,
+    SubClip,
+    SubscribeItem,
+    TimelineItem,
+    TimestampItem,
+    TitleItem,
+    TrackerItem,
 )
-from schemas import RemixAutoResponse, TimelineItemResponse
+from domain.projects import Project
+from domain.shared import ClipType
 from config import REMIX_DIR
 from routes.timeline import _resolve_item
 from services.remix_generator import (
@@ -71,7 +79,7 @@ def _walk_timeline(timeline_items: list[TimelineItem]) -> list[dict]:
     return entries
 
 
-def _shift_overlay_times(db: Session, project_id: int, after_time: float, shift: float):
+def _shift_overlay_times(db: Session, project_id: str, after_time: float, shift: float):
     """Shift start_time/end_time of all overlay items that start after the given time."""
     for model in (TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem):
         items = db.query(model).filter(
@@ -83,7 +91,7 @@ def _shift_overlay_times(db: Session, project_id: int, after_time: float, shift:
             item.end_time += shift
 
 
-def _get_full_timeline_response(db: Session, project_id: int) -> list[TimelineItemResponse]:
+def _get_full_timeline_response(db: Session, project_id: str) -> list[TimelineItemResponse]:
     """Fetch and resolve the full timeline."""
     items = (
         db.query(TimelineItem)
@@ -95,7 +103,7 @@ def _get_full_timeline_response(db: Session, project_id: int) -> list[TimelineIt
 
 
 @router.get("/{project_id}", response_model=RemixAutoResponse)
-def get_remixes(project_id: int, db: Session = Depends(get_db)):
+def get_remixes(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -105,7 +113,7 @@ def get_remixes(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=RemixAutoResponse)
-async def auto_generate_remixes(project_id: int, db: Session = Depends(get_db)):
+async def auto_generate_remixes(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -212,7 +220,7 @@ async def auto_generate_remixes(project_id: int, db: Session = Depends(get_db)):
     return RemixAutoResponse(items=_get_full_timeline_response(db, project_id))
 
 
-def _clear_remix_clips(db: Session, project_id: int):
+def _clear_remix_clips(db: Session, project_id: str):
     """Remove all remix clips from the timeline and database."""
     # Find all remix clips for this project
     remix_clips = (
@@ -277,7 +285,7 @@ def _clear_remix_clips(db: Session, project_id: int):
 
 
 @router.delete("/{project_id}", response_model=RemixAutoResponse)
-def clear_remixes(project_id: int, db: Session = Depends(get_db)):
+def clear_remixes(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")

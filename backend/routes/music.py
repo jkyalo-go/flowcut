@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import MusicItem, Asset, AssetType, TimelineItem, Project
-from schemas import MusicItemResponse, MusicAutoResponse, VolumeKeypoint
+from contracts.media import MusicAutoResponse, MusicItemResponse, VolumeKeypoint
+from domain.media import Asset, MusicItem, TimelineItem
+from domain.projects import Project
+from domain.shared import AssetType
 from services.ducker import compute_volume_envelope
 
 router = APIRouter()
@@ -52,7 +54,7 @@ def _music_item_to_response(item: MusicItem) -> MusicItemResponse:
 
 
 @router.get("/{project_id}", response_model=MusicAutoResponse)
-def get_music(project_id: int, db: Session = Depends(get_db)):
+def get_music(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -80,7 +82,7 @@ def get_music(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/{project_id}/auto", response_model=MusicAutoResponse)
-def auto_place_music(project_id: int, db: Session = Depends(get_db)):
+def auto_place_music(project_id: str, db: Session = Depends(get_db)):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
@@ -139,7 +141,7 @@ def auto_place_music(project_id: int, db: Session = Depends(get_db)):
 
 
 @router.delete("/{project_id}")
-def clear_music(project_id: int, db: Session = Depends(get_db)):
+def clear_music(project_id: str, db: Session = Depends(get_db)):
     db.query(MusicItem).filter(MusicItem.project_id == project_id).delete()
     db.commit()
     return {"ok": True}

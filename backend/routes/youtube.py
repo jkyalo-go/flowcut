@@ -5,8 +5,9 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Project
-from schemas import YouTubeUploadRequest
+from dependencies import get_current_workspace
+from contracts.platforms import YouTubeUploadRequest
+from domain.projects import Project
 from services.youtube_service import (
     get_auth_url, exchange_code, get_auth_status,
     upload_video, revoke_credentials,
@@ -17,12 +18,12 @@ from routes.ws import broadcast
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_upload_tasks: dict[int, asyncio.Task] = {}
+_upload_tasks: dict[str, asyncio.Task] = {}
 
 
 @router.get("/status")
-def youtube_status(db: Session = Depends(get_db)):
-    return get_auth_status(db)
+def youtube_status(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    return get_auth_status(db, workspace_id=workspace.id)
 
 
 @router.get("/auth")
@@ -60,11 +61,12 @@ def youtube_callback(code: str, db: Session = Depends(get_db)):
 
 @router.post("/upload/{project_id}")
 async def start_upload(
-    project_id: int,
+    project_id: str,
     body: YouTubeUploadRequest,
+    workspace=Depends(get_current_workspace),
     db: Session = Depends(get_db),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = db.query(Project).filter(Project.id == project_id, Project.workspace_id == workspace.id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
@@ -92,6 +94,7 @@ async def start_upload(
                     None,
                     lambda: upload_video(
                         project_id=project_id,
+                        workspace_id=workspace.id,
                         title=body.title,
                         description=body.description,
                         tags=body.tags,
@@ -120,6 +123,6 @@ async def start_upload(
 
 
 @router.post("/disconnect")
-def youtube_disconnect(db: Session = Depends(get_db)):
-    revoke_credentials(db)
+def youtube_disconnect(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    revoke_credentials(db, workspace_id=workspace.id)
     return {"ok": True}
