@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -38,6 +38,9 @@ export default function StyleProfilesPage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lockSaved, setLockSaved] = useState(false)
+  const lockSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (lockSavedTimerRef.current) clearTimeout(lockSavedTimerRef.current) }, [])
 
   useEffect(() => {
     let mounted = true
@@ -95,8 +98,9 @@ export default function StyleProfilesPage() {
       })
       setSelected(updated)
       setProfiles(prev => prev.map(p => p.id === updated.id ? updated : p))
+      if (lockSavedTimerRef.current) clearTimeout(lockSavedTimerRef.current)
       setLockSaved(true)
-      setTimeout(() => setLockSaved(false), 2000)
+      lockSavedTimerRef.current = setTimeout(() => setLockSaved(false), 2000)
     } catch (err: unknown) {
       setError(err instanceof ApiError ? err.message : 'Failed to update locks')
     }
