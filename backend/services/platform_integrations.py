@@ -21,7 +21,11 @@ async def publish_with_resilience(workspace_id: str, platform: str, publish_fn, 
     breaker.check()  # raises CircuitOpen if open
     _rate_limiter.check_and_record(workspace_id, platform)  # raises RateLimitExceeded
     try:
-        result = await publish_fn(*args, **kwargs)
+        import inspect
+        if inspect.iscoroutinefunction(publish_fn):
+            result = await publish_fn(*args, **kwargs)
+        else:
+            result = await asyncio.to_thread(publish_fn, *args, **kwargs)
         breaker.record_success()
         return result
     except Exception as e:
@@ -451,7 +455,8 @@ ADAPTERS: dict[str, PlatformAdapter] = {
 
 def publish_slot(db: Session, slot: CalendarSlot, project: Project, connection: PlatformConnection) -> PublishResult:
     connection = ensure_valid_platform_connection(db, connection)
-    adapter = ADAPTERS.get(slot.platform.value if hasattr(slot.platform, "value") else str(slot.platform))
+    platform_key = slot.platform.value if hasattr(slot.platform, "value") else str(slot.platform)
+    adapter = ADAPTERS.get(platform_key)
     if not adapter:
         raise PlatformPublishError(f"No adapter registered for platform `{slot.platform}`.")
     payload_data = _parse_metadata(slot.metadata_json)
@@ -465,7 +470,17 @@ def publish_slot(db: Session, slot: CalendarSlot, project: Project, connection: 
     render_path = _render_path_for_project(project)
     if not render_path.exists():
         raise PlatformPublishError("Render not found. Export the video first.")
-    return adapter.publish(db, slot.workspace_id, project, connection, payload, render_path)
+    # Apply circuit-breaker and rate-limiter checks before calling the adapter
+    breaker = get_breaker(platform_key)
+    breaker.check()  # raises CircuitOpen if open
+    _rate_limiter.check_and_record(slot.workspace_id, platform_key)  # raises RateLimitExceeded
+    try:
+        result = adapter.publish(db, slot.workspace_id, project, connection, payload, render_path)
+        breaker.record_success()
+        return result
+    except Exception:
+        breaker.record_failure()
+        raise
 
 
 def _update_slot_metadata(slot: CalendarSlot, patch: dict) -> None:

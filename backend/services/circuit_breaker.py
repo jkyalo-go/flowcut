@@ -44,9 +44,11 @@ class CircuitBreaker:
 
 
 _breakers: dict[str, CircuitBreaker] = {}
+_breakers_lock = Lock()
 
 
 def get_breaker(platform: str) -> CircuitBreaker:
-    if platform not in _breakers:
-        _breakers[platform] = CircuitBreaker(platform)
-    return _breakers[platform]
+    with _breakers_lock:
+        if platform not in _breakers:
+            _breakers[platform] = CircuitBreaker(platform)
+        return _breakers[platform]

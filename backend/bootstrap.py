@@ -248,29 +248,26 @@ async def _performance_feedback_loop():
 async def _token_refresh_loop():
     while True:
         await asyncio.sleep(300)  # every 5 minutes
-        def _run_refresh():
+        def _run_token_refresh():
             import os
+            import asyncio as _asyncio
             db = SessionLocal()
             try:
-                from services.token_refresh import get_tokens_needing_refresh
+                from services.token_refresh import get_tokens_needing_refresh, refresh_token_sync
                 tokens = get_tokens_needing_refresh(db)
-                return tokens, db
-            except Exception as e:
-                logging.warning("Token refresh query failed: %s", e)
-                db.close()
-                return [], None
-        try:
-            from services.token_refresh import refresh_token
-            tokens, db = await asyncio.to_thread(_run_refresh)
-            if db is not None:
                 for pa in tokens:
-                    import os
-                    await refresh_token(
-                        pa, db,
-                        client_id=os.getenv(f"{pa.platform.upper()}_CLIENT_ID", ""),
-                        client_secret=os.getenv(f"{pa.platform.upper()}_CLIENT_SECRET", ""),
-                    )
+                    try:
+                        refresh_token_sync(
+                            pa, db,
+                            client_id=os.getenv(f"{pa.platform.upper()}_CLIENT_ID", ""),
+                            client_secret=os.getenv(f"{pa.platform.upper()}_CLIENT_SECRET", ""),
+                        )
+                    except Exception as e:
+                        logging.warning("Token refresh failed for %s: %s", pa.platform, e)
+            finally:
                 db.close()
+        try:
+            await asyncio.to_thread(_run_token_refresh)
         except Exception as e:
             logging.warning("Token refresh loop error: %s", e)
 

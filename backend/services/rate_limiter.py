@@ -38,5 +38,6 @@ class SlidingWindowRateLimiter:
         cutoff = now - self.window_sec
         with self._lock:
             dq = self._windows[key]
-            active = sum(1 for t in dq if t > cutoff)
-            return max(0, self.max_calls - active)
+            while dq and dq[0] < cutoff:
+                dq.popleft()
+            return max(0, self.max_calls - len(dq))

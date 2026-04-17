@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, LargeBinary, String, func
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, LargeBinary, String, func
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -49,7 +49,7 @@ class PlatformAuth(Base):
 
     id = Column(UUID_SQL_TYPE, primary_key=True, default=new_uuid)
     workspace_id = Column(UUID_SQL_TYPE, ForeignKey("workspaces.id"), nullable=False)
-    platform = Column(String, nullable=False)
+    platform = Column(Enum(PlatformType, **ENUM_SQL_OPTIONS), nullable=False)
     access_token_enc = Column(LargeBinary, nullable=True)
     refresh_token_enc = Column(LargeBinary, nullable=True)
     token_expires_at = Column(DateTime, nullable=True)
@@ -59,6 +59,10 @@ class PlatformAuth(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     workspace = relationship("Workspace")
+
+    __table_args__ = (
+        Index("ix_platform_auth_status_expires", "status", "token_expires_at"),
+    )
 
 
 class PlatformAuthState(Base):
