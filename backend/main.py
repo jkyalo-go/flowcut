@@ -6,6 +6,7 @@ try:
     from .bootstrap import lifespan
     from .config import CORS_ORIGINS, PROCESSED_DIR
     from .middleware.csrf import CSRFMiddleware
+    from .middleware.errors import install_error_handlers
     from .middleware.request_context import RequestContextMiddleware, configure_logging
     from .middleware.sentry import init_sentry
     from .modules import register_routers
@@ -13,6 +14,7 @@ except ImportError:
     from bootstrap import lifespan
     from config import CORS_ORIGINS, PROCESSED_DIR
     from middleware.csrf import CSRFMiddleware
+    from middleware.errors import install_error_handlers
     from middleware.request_context import RequestContextMiddleware, configure_logging
     from middleware.sentry import init_sentry
     from modules import register_routers
@@ -46,4 +48,5 @@ app.add_middleware(CSRFMiddleware)
 
 app.mount("/static", StaticFiles(directory=str(PROCESSED_DIR.parent)), name="static")
 
+install_error_handlers(app)
 register_routers(app)

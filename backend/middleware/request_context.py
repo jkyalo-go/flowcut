@@ -43,6 +43,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         incoming = request.headers.get(REQUEST_ID_HEADER)
         request_id = incoming if incoming else str(uuid.uuid4())
+        request.state.request_id = request_id
         token = _request_id_ctx.set(request_id)
         structlog.contextvars.bind_contextvars(request_id=request_id, path=request.url.path)
         try:

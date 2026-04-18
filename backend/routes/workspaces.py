@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from contracts.identity import WorkspaceCreate, WorkspaceResponse
 from database import get_db
@@ -49,7 +49,12 @@ def create_workspace(body: WorkspaceCreate, user=Depends(get_current_user), db: 
 
 @router.get("/current/members")
 def list_members(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
-    rows = db.query(Membership).filter(Membership.workspace_id == workspace.id).all()
+    rows = (
+        db.query(Membership)
+        .options(joinedload(Membership.user))
+        .filter(Membership.workspace_id == workspace.id)
+        .all()
+    )
     return [
         {
             "id": row.id,

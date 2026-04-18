@@ -3,6 +3,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from common.secrets import seal
 from contracts.ai import (
     AIProviderConfigResponse,
     AIProviderConfigUpdate,
@@ -48,7 +49,8 @@ def create_credential(
         provider=provider,
         credential_source="byok",
         label=body.label,
-        api_key=body.api_key,
+        api_key=None,  # legacy plaintext column — never write here
+        api_key_enc=seal(body.api_key),
         allowed_models=json.dumps(body.allowed_models),
     )
     db.add(row)
@@ -81,7 +83,8 @@ def admin_update_provider_config(
     if body.enabled is not None:
         row.enabled = 1 if body.enabled else 0
     if body.api_key is not None:
-        row.api_key = body.api_key
+        row.api_key = None
+        row.api_key_enc = seal(body.api_key)
     if body.base_url is not None:
         row.base_url = body.base_url
     if body.config is not None:

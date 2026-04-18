@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, func
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, func
 
 from database import Base
 from domain.shared import ENUM_SQL_OPTIONS, UUID_SQL_TYPE, AIProvider, AIUsageStatus, CredentialSource, new_uuid
@@ -12,7 +12,8 @@ class AIProviderCredential(Base):
     provider = Column(Enum(AIProvider, **ENUM_SQL_OPTIONS), nullable=False)
     credential_source = Column(Enum(CredentialSource, **ENUM_SQL_OPTIONS), nullable=False, default=CredentialSource.BYOK)
     label = Column(String, nullable=True)
-    api_key = Column(String, nullable=False)
+    api_key = Column(String, nullable=True)  # legacy plaintext; new writes use api_key_enc
+    api_key_enc = Column(LargeBinary, nullable=True)  # AES-GCM sealed via common.secrets.seal
     allowed_models = Column(String, nullable=True)
     is_active = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, server_default=func.now())
@@ -29,7 +30,8 @@ class AIProviderConfig(Base):
     task_types = Column(String, nullable=False)
     capabilities_json = Column(String, nullable=True)
     enabled = Column(Integer, nullable=False, default=1)
-    api_key = Column(String, nullable=True)
+    api_key = Column(String, nullable=True)  # legacy plaintext; new writes use api_key_enc
+    api_key_enc = Column(LargeBinary, nullable=True)  # AES-GCM sealed via common.secrets.seal
     base_url = Column(String, nullable=True)
     config_json = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
