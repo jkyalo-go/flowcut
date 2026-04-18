@@ -32,6 +32,22 @@ def list_providers(workspace=Depends(get_current_workspace), db: Session = Depen
     return registry.provider_catalog(db)
 
 
+@router.get("/catalog", response_model=list[AIProviderConfigResponse])
+def list_catalog(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
+    """Workspace-visible per-row provider catalog.
+
+    Mirrors the admin endpoint's shape (one row per provider×model) but is
+    scoped to any authenticated workspace member, not just system admins.
+    Used by the /integrations page to render logos and task-type badges.
+    """
+    return (
+        db.query(AIProviderConfig)
+        .filter(AIProviderConfig.enabled == 1)
+        .order_by(AIProviderConfig.provider, AIProviderConfig.model_key)
+        .all()
+    )
+
+
 @router.get("/credentials", response_model=list[AIProviderCredentialResponse])
 def list_credentials(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
     return db.query(AIProviderCredential).filter(AIProviderCredential.workspace_id == workspace.id).all()

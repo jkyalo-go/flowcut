@@ -519,7 +519,9 @@ export const surfaceApi = {
     return profiles.map(adaptStyleProfile)
   },
   getAIProviders: async (): Promise<AIProviderSurface[]> => {
-    const data = await api.get<Array<Record<string, unknown>>>('/api/ai/admin/providers')
+    // Workspace-scoped catalog endpoint — admin list is admin-only and would
+    // 403 for regular members, silently blanking the UI.
+    const data = await api.get<Array<Record<string, unknown>>>('/api/ai/catalog')
     return data.map(adaptProvider)
   },
   getAICredentials: async (): Promise<AICredentialSurface[]> => {
