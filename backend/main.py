@@ -26,8 +26,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Flowcut-Token",
+        "X-Request-ID",
+        "X-CSRF-Token",
+    ],
+    expose_headers=["X-Request-ID"],
+    max_age=600,
 )
 
 app.mount("/static", StaticFiles(directory=str(PROCESSED_DIR.parent)), name="static")

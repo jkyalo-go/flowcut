@@ -41,7 +41,33 @@ CORS_ORIGINS = _csv_env(
 )
 REQUIRE_DB_MIGRATIONS = _bool_env("REQUIRE_DB_MIGRATIONS", True)
 
+APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
+APP_VERSION = os.environ.get("APP_VERSION", "dev")
+SECRET_KEY = os.environ.get("SECRET_KEY", "")
+SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "flowcut_session")
+SESSION_COOKIE_SECURE = _bool_env("SESSION_COOKIE_SECURE", False)
+ENABLE_DEV_LOGIN = _bool_env("ENABLE_DEV_LOGIN", False)
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "")
+
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR / 'boost_vlog.db'}")
+
+_DEV_SECRETS = {"dev-secret-key-change-in-prod", "change-me-before-starting", "change-me", ""}
+
+
+def validate_production_config() -> None:
+    """Fail-fast validation called at startup. Only enforces rules in production."""
+    if APP_ENV != "production":
+        return
+    errors: list[str] = []
+    if SECRET_KEY in _DEV_SECRETS or len(SECRET_KEY) < 32:
+        errors.append("SECRET_KEY must be set to a 32+ char non-default secret in production")
+    if ENABLE_DEV_LOGIN:
+        errors.append("ENABLE_DEV_LOGIN must be false in production")
+    if DATABASE_URL.startswith("sqlite:"):
+        errors.append("DATABASE_URL must not be SQLite in production")
+    if errors:
+        raise RuntimeError("Invalid production config:\n  - " + "\n  - ".join(errors))
 DEEPGRAM_API_KEY = os.environ.get("DEEPGRAM_API_KEY", "")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

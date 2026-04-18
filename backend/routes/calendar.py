@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from common.time import utc_now
 from contracts.platforms import GapSlotResponse
 from database import get_db
 from dependencies import get_current_workspace
@@ -24,7 +23,7 @@ def get_gaps(
         .filter(
             CalendarSlot.workspace_id == workspace.id,
             CalendarSlot.platform == platform,
-            CalendarSlot.scheduled_at >= datetime.utcnow(),
+            CalendarSlot.scheduled_at >= utc_now(),
         )
         .all()
     )

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
+from common.time import utc_now
 from database import SessionLocal
 from domain.platforms import CalendarSlot
 from domain.projects import StyleProfile
@@ -19,7 +20,7 @@ def run_performance_feedback_sweep():
     """Check calendar slots published >72h ago and nudge style profiles."""
     db: Session = SessionLocal()
     try:
-        cutoff = datetime.utcnow() - timedelta(hours=MATURATION_HOURS)
+        cutoff = utc_now() - timedelta(hours=MATURATION_HOURS)
         slots = (
             db.query(CalendarSlot)
             .filter(
