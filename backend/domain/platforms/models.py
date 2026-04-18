@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, Large
 from sqlalchemy.orm import relationship
 
 from database import Base
-from domain.shared import ENUM_SQL_OPTIONS, PlatformType, UUID_SQL_TYPE, new_uuid
+from domain.shared import ENUM_SQL_OPTIONS, UUID_SQL_TYPE, PlatformType, new_uuid
 
 
 class PlatformConnection(Base):

@@ -1,14 +1,14 @@
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from contracts.platforms import PlatformConnectionCreate, PlatformConnectionResponse, PublishRequest
 from database import get_db
 from dependencies import get_current_user, get_current_workspace
-from contracts.platforms import PlatformConnectionCreate, PlatformConnectionResponse, PublishRequest
 from domain.enterprise import OnboardingState
 from domain.media import Clip
 from domain.platforms import CalendarSlot, PlatformConnection
@@ -17,8 +17,13 @@ from domain.shared import PlatformType, ReviewStatus
 from services.audit import create_notification, record_audit
 from services.background_jobs import enqueue_job, ensure_due_publish_jobs, process_available_jobs
 from services.enterprise import record_admin_action
-from services.platform_auth import complete_platform_auth, disconnect_platform_auth, ensure_valid_platform_connection, platform_auth_start, platform_auth_status
-from services.platform_integrations import execute_slot
+from services.platform_auth import (
+    complete_platform_auth,
+    disconnect_platform_auth,
+    ensure_valid_platform_connection,
+    platform_auth_start,
+    platform_auth_status,
+)
 
 router = APIRouter()
 
@@ -123,7 +128,7 @@ def _serialize_platform_surface(platform: str, capabilities: dict, row: Platform
     if row:
         status = "active"
         if row.token_expiry:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             compare_now = now if getattr(row.token_expiry, "tzinfo", None) else now.replace(tzinfo=None)
             if row.token_expiry <= compare_now:
                 status = "expired"
@@ -182,7 +187,7 @@ def connect_platform(
         row.access_token = body.access_token
         row.refresh_token = body.refresh_token
         row.metadata_json = body.metadata_json
-        row.token_expiry = datetime.now(timezone.utc) + timedelta(days=30)
+        row.token_expiry = datetime.now(UTC) + timedelta(days=30)
     else:
         row = PlatformConnection(
             workspace_id=workspace.id,
@@ -192,7 +197,7 @@ def connect_platform(
             access_token=body.access_token,
             refresh_token=body.refresh_token,
             metadata_json=body.metadata_json or json.dumps({"connected_via": "manual"}),
-            token_expiry=datetime.now(timezone.utc) + timedelta(days=30),
+            token_expiry=datetime.now(UTC) + timedelta(days=30),
         )
         db.add(row)
     db.commit()
@@ -326,7 +331,7 @@ def publish_project(
 
     created_slots = []
     execute_now = not body.scheduled_at
-    scheduled_for = datetime.fromisoformat(body.scheduled_at) if body.scheduled_at else datetime.now(timezone.utc)
+    scheduled_for = datetime.fromisoformat(body.scheduled_at) if body.scheduled_at else datetime.now(UTC)
     correlation_id = uuid4().hex
     render_variants = body.render_variants or ["default"]
     for platform in body.platforms:

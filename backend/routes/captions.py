@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contracts.media import CaptionAutoResponse, CaptionItemResponse, CaptionItemUpdate
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import CaptionAutoResponse, CaptionItemResponse, CaptionItemUpdate
 from domain.media import CaptionItem, TimelineItem
 from routes import require_project
 

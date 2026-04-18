@@ -3,11 +3,10 @@ import random
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contracts.media import MusicAutoResponse, MusicItemResponse, VolumeKeypoint
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import MusicAutoResponse, MusicItemResponse, VolumeKeypoint
 from domain.media import Asset, MusicItem, TimelineItem
-from domain.projects import Project
 from domain.shared import AssetType
 from routes import require_project
 from services.ducker import compute_volume_envelope

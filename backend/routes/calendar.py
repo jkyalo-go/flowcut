@@ -1,11 +1,12 @@
 from datetime import datetime
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from contracts.platforms import GapSlotResponse
 from database import get_db
-from domain.platforms import CalendarSlot
 from dependencies import get_current_workspace
+from domain.platforms import CalendarSlot
 from services.scheduler import find_gaps
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])

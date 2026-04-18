@@ -3,6 +3,7 @@ import logging
 import tempfile
 import textwrap
 from pathlib import Path
+
 from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)

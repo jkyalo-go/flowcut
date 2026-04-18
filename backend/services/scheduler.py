@@ -1,5 +1,6 @@
 from __future__ import annotations
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 DEFAULT_HEATMAP = {
     0: [0.1]*6 + [0.3, 0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.8, 0.8, 0.7, 0.7, 0.9, 0.95, 0.9, 0.85, 0.8, 0.7, 0.5],
@@ -56,7 +57,7 @@ def find_gaps(
     if heatmap is None:
         heatmap = DEFAULT_HEATMAP
     scheduled_dts = {s["scheduled_at"] for s in scheduled_slots}
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     gaps = []
 
     for day_offset in range(window_days):

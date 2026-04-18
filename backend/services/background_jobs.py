@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -19,7 +19,7 @@ from services.storage import write_text_artifact
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def enqueue_job(
@@ -172,8 +172,9 @@ def _run_clip_process(db: Session, job: BackgroundJob, payload: dict) -> None:
     clip = db.query(Clip).filter(Clip.id == payload["clip_id"]).first()
     if not clip:
         raise RuntimeError("Clip not found")
-    from services.pipeline import process_clip
     import asyncio
+
+    from services.pipeline import process_clip
 
     asyncio.run(process_clip(str(clip.id)))
 
@@ -182,11 +183,12 @@ def _run_project_render(db: Session, job: BackgroundJob, payload: dict) -> None:
     project = db.query(Project).filter(Project.id == payload["project_id"]).first()
     if not project:
         raise RuntimeError("Project not found")
-    from config import GCS_MEDIA_BUCKET, PROCESSED_DIR, STORAGE_BACKEND
+    import asyncio
     from pathlib import Path
+
+    from config import GCS_MEDIA_BUCKET, PROCESSED_DIR, STORAGE_BACKEND
     from services.renderer import render_timeline
     from services.storage import finalize_uploaded_file
-    import asyncio
 
     project_id = str(project.id)
     output_path = str(PROCESSED_DIR / f"project_{project_id}_render.mp4")

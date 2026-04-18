@@ -1,17 +1,15 @@
 import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+import bcrypt as _bcrypt
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
+import services.oauth as _oauth_svc
 from config import FRONTEND_URL
-from database import get_db
-from dependencies import get_current_session, get_current_user
-import bcrypt as _bcrypt
-
 from contracts.identity import (
     DevLoginRequest,
     LoginRequest,
@@ -21,10 +19,12 @@ from contracts.identity import (
     UserResponse,
     WorkspaceResponse,
 )
+from database import get_db
+from dependencies import get_current_session, get_current_user
 from domain.enterprise import OnboardingState, QuotaPolicy, SubscriptionPlan, WorkspaceSubscription
 from domain.identity import AuthSession, Membership, User, Workspace
 from domain.shared import SubscriptionStatus
-import services.oauth as _oauth_svc
+
 
 def _hash_password(plain: str) -> str:
     return _bcrypt.hashpw(plain.encode(), _bcrypt.gensalt()).decode()
@@ -48,7 +48,7 @@ def _slugify(name: str) -> str:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 def _set_session_cookie(response: Response, token: str, expires_at: datetime | None) -> None:
@@ -56,7 +56,7 @@ def _set_session_cookie(response: Response, token: str, expires_at: datetime | N
     expires = None
     if expires_at is not None:
         max_age = max(int((expires_at - _utc_now()).total_seconds()), 0)
-        expires = expires_at.replace(tzinfo=timezone.utc)
+        expires = expires_at.replace(tzinfo=UTC)
     response.set_cookie(
         SESSION_COOKIE_NAME,
         token,

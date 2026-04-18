@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from domain.platforms import CalendarSlot
 from domain.projects import Project
@@ -19,7 +19,7 @@ def test_calendar_gaps_returns_frontend_contract(client, workspace_a, db):
         workspace_id=workspace_id,
         project_id=project.id,
         platform=PlatformType.YOUTUBE,
-        scheduled_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=1),
+        scheduled_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         status="scheduled",
     )
     db.add(slot)

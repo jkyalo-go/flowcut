@@ -6,14 +6,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from config import PROCESSED_DIR
+from contracts.media import TrackerAutoResponse, TrackerItemResponse
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import TrackerAutoResponse, TrackerItemResponse
 from domain.media import TimelineItem, TrackerItem
 from domain.shared import ClipType
-from services.tracker_generator import generate_tracker_overlay
-from config import PROCESSED_DIR
 from routes import require_project
+from services.tracker_generator import generate_tracker_overlay
 
 router = APIRouter()
 

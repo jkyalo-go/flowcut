@@ -42,6 +42,13 @@ export class ApiError extends Error {
   }
 }
 
+function newRequestId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `rid-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 function parseJson<T>(value: unknown, fallback: T): T {
   if (value == null) return fallback
   if (Array.isArray(fallback)) {
@@ -66,6 +73,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     credentials: 'include',
     headers: {
       ...contentTypeHeaders,
+      'X-Request-ID': newRequestId(),
       ...(init.headers ?? {}),
     },
   })

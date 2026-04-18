@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
+
 import httpx
 from sqlalchemy.orm import Session
+
 from domain.platforms import PlatformAuth
-from services.token_crypto import encrypt_token, decrypt_token
+from services.token_crypto import decrypt_token, encrypt_token
 
 logger = logging.getLogger(__name__)
 

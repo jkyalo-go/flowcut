@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
-from services.sie.schemas import EditManifest, TrimAction, ZoomAction, CaptionSegment
+
+from services.sie.schemas import CaptionSegment, EditManifest, TrimAction, ZoomAction
 
 
 def test_edit_manifest_valid_minimal():

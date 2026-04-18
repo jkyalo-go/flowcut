@@ -1,8 +1,11 @@
 from __future__ import annotations
+
 import json
 import logging
 from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
+
 from database import SessionLocal
 from domain.platforms import CalendarSlot
 from domain.projects import StyleProfile

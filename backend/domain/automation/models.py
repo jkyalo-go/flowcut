@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint, func
 
 from database import Base
 from domain.shared import UUID_SQL_TYPE, new_uuid

@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 
 
 def test_owner_can_invite(client, workspace_a):
@@ -24,6 +23,7 @@ def test_accept_invitation_creates_membership_and_switches_session(client, works
     )
     invite_token = invite_resp.json()["invite_token"]
     from uuid import uuid4
+
     from domain.identity import AuthSession, Membership, User
     joiner = User(email="joiner@test.com", name="Joiner", user_type="user")
     db.add(joiner)
@@ -47,8 +47,9 @@ def test_accept_invitation_creates_membership_and_switches_session(client, works
 
 def test_editor_cannot_invite(client, workspace_a, db):
     ws_id, owner_token = workspace_a
-    from domain.identity import User, Membership, AuthSession
     from uuid import uuid4
+
+    from domain.identity import AuthSession, Membership, User
     editor = User(email="editor@test.local", name="Editor")
     db.add(editor)
     db.flush()

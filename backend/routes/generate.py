@@ -1,16 +1,16 @@
 import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from config import PROCESSED_DIR
+from contracts.generation import MetadataRequest, ThumbnailRequest
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.generation import MetadataRequest, ThumbnailRequest
 from domain.media import Clip
-from domain.projects import Project
 from routes import require_project
-from services.title_generator import generate_titles, generate_description, generate_tags
-from services.thumbnail_generator import extract_frame, compose_thumbnail
-from config import PROCESSED_DIR
+from services.thumbnail_generator import compose_thumbnail, extract_frame
+from services.title_generator import generate_description, generate_tags, generate_titles
 
 router = APIRouter()
 

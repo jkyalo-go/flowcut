@@ -4,14 +4,14 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
-from services.circuit_breaker import get_breaker, CircuitOpen
-from services.rate_limiter import SlidingWindowRateLimiter, RateLimitExceeded
+from services.circuit_breaker import get_breaker
+from services.rate_limiter import SlidingWindowRateLimiter
 
 _rate_limiter = SlidingWindowRateLimiter(max_calls=20, window_sec=86400)
 
@@ -28,9 +28,11 @@ async def publish_with_resilience(workspace_id: str, platform: str, publish_fn, 
             result = await asyncio.to_thread(publish_fn, *args, **kwargs)
         breaker.record_success()
         return result
-    except Exception as e:
+    except Exception:
         breaker.record_failure()
         raise
+
+import base64
 
 import httpx
 from sqlalchemy.orm import Session
@@ -46,8 +48,6 @@ from services.platform_auth import ensure_valid_platform_connection
 from services.storage import signed_url_for
 from services.token_crypto import decrypt_token
 from services.youtube_service import upload_video
-
-import base64
 
 
 def _decrypt_stored_token(stored: str | None) -> str | None:
@@ -616,7 +616,7 @@ def execute_due_slots(db: Session, workspace_id: str | None = None) -> list[Cale
     query = db.query(CalendarSlot).filter(CalendarSlot.status.in_(["scheduled", "publishing", "processing"]))
     if workspace_id is not None:
         query = query.filter(CalendarSlot.workspace_id == workspace_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     slots = query.all()
     scheduled = [slot for slot in slots if slot.status == "scheduled" and (not slot.scheduled_at or slot.scheduled_at <= now)]
     in_flight = [slot for slot in slots if slot.status in {"publishing", "processing"}]

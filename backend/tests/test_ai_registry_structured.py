@@ -1,6 +1,7 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
 from pydantic import BaseModel
+
 from domain.shared import AIProvider, CredentialSource
 
 

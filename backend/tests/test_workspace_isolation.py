@@ -3,8 +3,6 @@ Proves that routes cannot access data from a different workspace.
 Each test creates two workspaces (A, B), seeds a project in A,
 then tries to read it with B's token. Should get 404, not the data.
 """
-import pytest
-from fastapi.testclient import TestClient
 
 from domain.projects import Project
 

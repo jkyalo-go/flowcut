@@ -4,8 +4,8 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import anthropic
 import openai as openai_sdk

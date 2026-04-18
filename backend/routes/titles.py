@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contracts.media import TitleAutoResponse, TitleItemResponse, TitleItemUpdate
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import TitleAutoResponse, TitleItemResponse, TitleItemUpdate
 from domain.media import TimelineItem, TitleItem
-from domain.projects import Project
-from services.title_overlay_generator import generate_title_overlays
 from routes import require_project
+from services.title_overlay_generator import generate_title_overlays
 
 router = APIRouter()
 

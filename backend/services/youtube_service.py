@@ -1,23 +1,25 @@
 import base64
 import logging
-from datetime import datetime, timedelta
-from typing import Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
+import google.auth.transport.requests
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-import google.auth.transport.requests
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from config import (
+    PROCESSED_DIR,
+    YOUTUBE_CLIENT_ID,
+    YOUTUBE_CLIENT_SECRET,
+    YOUTUBE_REDIRECT_URI,
+)
 from domain.platforms import PlatformConnection
 from domain.shared import PlatformType
-from config import (
-    YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI, PROCESSED_DIR,
-)
 from services.token_crypto import decrypt_token, encrypt_token
 
 

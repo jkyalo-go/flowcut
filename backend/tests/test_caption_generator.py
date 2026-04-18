@@ -1,6 +1,7 @@
 def test_generate_platform_captions_fallback_without_api_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     import importlib
+
     import services.caption_generator as cg
     importlib.reload(cg)
     result = cg.generate_platform_captions(
@@ -15,8 +16,9 @@ def test_generate_platform_captions_fallback_without_api_key(monkeypatch):
 
 def test_generate_platform_captions_with_gemini_mock(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "fake-key")
-    from unittest.mock import MagicMock, patch
     import importlib
+    from unittest.mock import MagicMock, patch
+
     import services.caption_generator as cg
     importlib.reload(cg)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
-from typing import List, Literal, Optional
+
+from typing import Literal
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -8,7 +10,7 @@ class TrimAction(BaseModel):
     end_sec: float = Field(ge=0.0)
 
     @model_validator(mode="after")
-    def end_after_start(self) -> "TrimAction":
+    def end_after_start(self) -> TrimAction:
         if self.end_sec <= self.start_sec:
             raise ValueError(
                 f"end_sec ({self.end_sec}) must be greater than start_sec ({self.start_sec})"
@@ -29,7 +31,7 @@ class TransitionAction(BaseModel):
     duration_sec: float = Field(ge=0.0, le=1.0, default=0.0)
 
     @model_validator(mode="after")
-    def duration_required_for_non_hard_cut(self) -> "TransitionAction":
+    def duration_required_for_non_hard_cut(self) -> TransitionAction:
         if self.type != "hard_cut" and self.duration_sec == 0.0:
             raise ValueError(
                 f"transition type '{self.type}' requires duration_sec > 0"
@@ -48,10 +50,10 @@ class CaptionSegment(BaseModel):
     end_sec: float = Field(ge=0.0)
     text: str
     animation: Literal["word_by_word", "fade", "slide_up", "typewriter"] = "word_by_word"
-    emphasis_words: List[str] = []
+    emphasis_words: list[str] = []
 
     @model_validator(mode="after")
-    def end_after_start(self) -> "CaptionSegment":
+    def end_after_start(self) -> CaptionSegment:
         if self.end_sec <= self.start_sec:
             raise ValueError(
                 f"end_sec ({self.end_sec}) must be greater than start_sec ({self.start_sec})"
@@ -65,7 +67,7 @@ class SpeedRamp(BaseModel):
     speed_factor: float = Field(ge=0.25, le=8.0)
 
     @model_validator(mode="after")
-    def end_after_start(self) -> "SpeedRamp":
+    def end_after_start(self) -> SpeedRamp:
         if self.end_sec <= self.start_sec:
             raise ValueError(
                 f"end_sec ({self.end_sec}) must be greater than start_sec ({self.start_sec})"
@@ -78,12 +80,12 @@ Platform = Literal["tiktok", "youtube_shorts", "instagram_reels", "youtube", "li
 
 class EditManifest(BaseModel):
     trim: TrimAction
-    platform_targets: List[Platform] = Field(min_length=1)
-    zooms: List[ZoomAction] = []
-    transitions: List[TransitionAction] = []
-    sfx: List[SFXAction] = []
-    captions: List[CaptionSegment] = []
-    speed_ramps: List[SpeedRamp] = []
+    platform_targets: list[Platform] = Field(min_length=1)
+    zooms: list[ZoomAction] = []
+    transitions: list[TransitionAction] = []
+    sfx: list[SFXAction] = []
+    captions: list[CaptionSegment] = []
+    speed_ramps: list[SpeedRamp] = []
     music_bed_volume_db: float = Field(ge=-40.0, le=0.0, default=-18.0)
     intro_duration_sec: float = Field(ge=0.0, le=10.0, default=0.0)
     outro_duration_sec: float = Field(ge=0.0, le=10.0, default=2.0)

@@ -1,4 +1,4 @@
-from services.rate_limiter import SlidingWindowRateLimiter, RateLimitExceeded
+from services.rate_limiter import RateLimitExceeded, SlidingWindowRateLimiter
 
 
 def test_allows_requests_under_limit():

@@ -1,13 +1,13 @@
-import os
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from config import FRONTEND_URL
+from contracts.identity import InvitationCreateRequest, SessionResponse
 from database import get_db
 from dependencies import get_current_session
-from contracts.identity import InvitationCreateRequest, SessionResponse
 from domain.identity import Invitation, Membership, User, Workspace
 from routes.auth import _create_session
 from services.email_service import send_email
@@ -46,7 +46,7 @@ def create_invitation(
         email=email,
         role=role,
         token=invite_token,
-        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=7),
+        expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7),
     )
     db.add(inv)
     db.commit()
@@ -75,7 +75,7 @@ def get_invitation(invite_token: str, db: Session = Depends(get_db)):
     if not inv:
         raise HTTPException(404, "Invitation not found")
     workspace = db.query(Workspace).filter(Workspace.id == inv.workspace_id).first()
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     expired = inv.expires_at < now
     if expired and inv.status == "pending":
         inv.status = "expired"
@@ -104,7 +104,7 @@ def accept_invitation(
     ).first()
     if not inv:
         raise HTTPException(404, "Invitation not found or already used")
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(UTC).replace(tzinfo=None)
     if inv.expires_at < now:
         inv.status = "expired"
         db.commit()

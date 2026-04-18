@@ -1,6 +1,3 @@
-import json
-import pytest
-from unittest.mock import patch, MagicMock
 
 
 def _make_profile(extra: dict | None = None) -> dict:

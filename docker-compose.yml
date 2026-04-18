@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: flowcut
+      POSTGRES_PASSWORD: flowcut
+      POSTGRES_DB: flowcut
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowcut"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://flowcut:flowcut@db:5432/flowcut
+      APP_ENV: ${APP_ENV:-development}
+      APP_VERSION: ${APP_VERSION:-dev}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_storage:/app/backend/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_APP_ENV: ${APP_ENV:-development}
+      NEXT_PUBLIC_APP_VERSION: ${APP_VERSION:-dev}
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:
+  backend_storage:

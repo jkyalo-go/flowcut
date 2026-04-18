@@ -2,8 +2,7 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import get_db
-from dependencies import get_current_workspace
+
 from contracts.media import (
     AssetResponse,
     CaptionItemResponse,
@@ -17,7 +16,19 @@ from contracts.media import (
     VolumeKeypoint,
 )
 from contracts.projects import ProjectCreate, ProjectMetadataUpdate, ProjectResponse
-from domain.media import Asset, CaptionItem, Clip, MusicItem, SubscribeItem, TimelineItem, TimestampItem, TitleItem, TrackerItem
+from database import get_db
+from dependencies import get_current_workspace
+from domain.media import (
+    Asset,
+    CaptionItem,
+    Clip,
+    MusicItem,
+    SubscribeItem,
+    TimelineItem,
+    TimestampItem,
+    TitleItem,
+    TrackerItem,
+)
 from domain.platforms import CalendarSlot, PlatformConnection
 from domain.projects import Project
 from routes.music import _build_timeline_segments

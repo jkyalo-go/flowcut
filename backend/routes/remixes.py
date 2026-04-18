@@ -1,32 +1,29 @@
 import shutil
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from config import REMIX_DIR
+from contracts.media import RemixAutoResponse, TimelineItemResponse
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import RemixAutoResponse, TimelineItemResponse
 from domain.media import (
     CaptionItem,
     Clip,
-    SubClip,
     SubscribeItem,
     TimelineItem,
     TimestampItem,
     TitleItem,
     TrackerItem,
 )
-from domain.projects import Project
 from domain.shared import ClipType
-from config import REMIX_DIR
 from routes import require_project
 from routes.timeline import _resolve_item
 from services.remix_generator import (
-    find_boundaries,
-    select_boundaries_and_generate_prompts,
-    generate_remix_video,
     _probe_duration,
+    find_boundaries,
+    generate_remix_video,
+    select_boundaries_and_generate_prompts,
 )
 
 router = APIRouter()

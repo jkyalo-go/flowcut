@@ -1,7 +1,7 @@
 from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, func
 
 from database import Base
-from domain.shared import AIProvider, AIUsageStatus, CredentialSource, ENUM_SQL_OPTIONS, UUID_SQL_TYPE, new_uuid
+from domain.shared import ENUM_SQL_OPTIONS, UUID_SQL_TYPE, AIProvider, AIUsageStatus, CredentialSource, new_uuid
 
 
 class AIProviderCredential(Base):

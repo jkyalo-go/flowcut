@@ -4,12 +4,14 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
+
 from alembic import context
 
 # Make backend/ importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 config = context.config

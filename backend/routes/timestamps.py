@@ -1,16 +1,16 @@
-from datetime import datetime, timezone
+from datetime import UTC
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contracts.media import TimestampAutoResponse, TimestampItemResponse, TimestampItemUpdate
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import TimestampAutoResponse, TimestampItemResponse, TimestampItemUpdate
 from domain.media import TimelineItem, TimestampItem
-from services.timestamp_generator import generate_timestamps
-from routes.settings import _get_setting
 from routes import require_project
+from routes.settings import _get_setting
+from services.timestamp_generator import generate_timestamps
 
 router = APIRouter()
 
@@ -46,7 +46,7 @@ def _build_datetime_transcript(items: list[TimelineItem], tz: ZoneInfo) -> tuple
         # New clip — emit a line
         recorded_at = clip.recorded_at if clip else None
         if recorded_at:
-            utc_dt = recorded_at.replace(tzinfo=timezone.utc)
+            utc_dt = recorded_at.replace(tzinfo=UTC)
             local_dt = utc_dt.astimezone(tz)
             datetime_str = local_dt.strftime("%A %B %d, %Y %I:%M %p")
         else:

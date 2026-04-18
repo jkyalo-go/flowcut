@@ -1,4 +1,3 @@
-import pytest
 
 
 def test_check_quota_passes_when_no_record(db):
@@ -10,9 +9,10 @@ def test_check_quota_passes_when_no_record(db):
 
 def test_check_quota_fails_when_exceeded(db):
     """Quota check fails when usage + requested exceeds QuotaPolicy limit."""
-    from services.enterprise import check_quota
-    from domain.enterprise import QuotaPolicy, UsageLedger
     from uuid import uuid4
+
+    from domain.enterprise import QuotaPolicy, UsageLedger
+    from services.enterprise import check_quota
 
     ws_id = str(uuid4())
     # Set a tight quota
@@ -33,9 +33,10 @@ def test_check_quota_fails_when_exceeded(db):
 
 def test_check_quota_passes_within_limit(db):
     """Quota check passes when usage + requested is within limit."""
-    from services.enterprise import check_quota
-    from domain.enterprise import QuotaPolicy, UsageLedger
     from uuid import uuid4
+
+    from domain.enterprise import QuotaPolicy, UsageLedger
+    from services.enterprise import check_quota
 
     ws_id = str(uuid4())
     db.add(QuotaPolicy(workspace_id=ws_id, storage_quota_mb=100, ai_spend_cap_usd=50.0,
@@ -54,9 +55,10 @@ def test_check_quota_passes_within_limit(db):
 
 def test_check_quota_passes_unlimited(db):
     """Quota check passes when policy limit is -1 (unlimited)."""
-    from services.enterprise import check_quota
-    from domain.enterprise import QuotaPolicy, UsageLedger
     from uuid import uuid4
+
+    from domain.enterprise import QuotaPolicy, UsageLedger
+    from services.enterprise import check_quota
 
     ws_id = str(uuid4())
     db.add(QuotaPolicy(workspace_id=ws_id, storage_quota_mb=-1, ai_spend_cap_usd=50.0,

@@ -7,13 +7,23 @@ from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
+
+from config import RENDER_BASE_URL
 from database import SessionLocal
-from domain.media import Asset, CaptionItem, MusicItem, SubscribeItem, TimelineItem, TimestampItem, TitleItem, TrackerItem
+from domain.media import (
+    CaptionItem,
+    MusicItem,
+    SubscribeItem,
+    TimelineItem,
+    TimestampItem,
+    TitleItem,
+    TrackerItem,
+)
+from routes.music import _build_timeline_segments
 from routes.ws import broadcast
 from services.ducker import compute_volume_envelope
-from services.sfx_generator import TITLE_IN_PATH, TITLE_OUT_PATH, ensure_title_sfx
-from routes.music import _build_timeline_segments
-from config import RENDER_BASE_URL
+from services.sfx_generator import ensure_title_sfx
+
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 FPS = 30
 

@@ -1,6 +1,4 @@
-import pytest
-from unittest.mock import patch, AsyncMock
-from tests.conftest import _seed_workspace
+from unittest.mock import AsyncMock, patch
 
 
 def test_oauth_start_returns_redirect_url(client):
@@ -13,8 +11,9 @@ def test_oauth_start_returns_redirect_url(client):
 
 
 def test_oauth_callback_creates_user_and_session(client, db):
-    from services.oauth import generate_state_token
     import os
+
+    from services.oauth import generate_state_token
     valid_state = generate_state_token(os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod"))
     fake_user_info = {
         "sub": "google-uid-123",
@@ -43,8 +42,9 @@ def test_oauth_callback_reuses_existing_user(client, db, workspace_a):
         "name": "Workspace A",
         "picture": None,
     }
-    from services.oauth import generate_state_token
     import os
+
+    from services.oauth import generate_state_token
     state1 = generate_state_token(os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod"))
     state2 = generate_state_token(os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod"))
     with patch("services.oauth.exchange_google_code", AsyncMock(return_value=fake_user_info)):
@@ -67,7 +67,7 @@ def test_oauth_callback_rejects_invalid_state(client):
 
 
 def test_token_roundtrip_encryption():
-    from services.token_crypto import encrypt_token, decrypt_token
+    from services.token_crypto import decrypt_token, encrypt_token
     key = b"0" * 32  # 32-byte test key
     plaintext = "ya29.access_token_here"
     ciphertext = encrypt_token(plaintext, key)
@@ -77,6 +77,7 @@ def test_token_roundtrip_encryption():
 
 def test_token_refresh_skips_non_expiring(db, workspace_a):
     from datetime import datetime, timedelta
+
     from domain.platforms import PlatformAuth
     from services.token_crypto import encrypt_token
     ws_id, _ = workspace_a

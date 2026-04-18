@@ -1,0 +1,37 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["alembic/versions", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC"]
+# ignore rules are grouped so follow-up plans can re-enable them:
+#  - cosmetic/style: E501, B008, S101, UP042, E741
+#  - codebase import-fallback pattern (try/except ImportError at top): E402, F403
+#  - subprocess/urllib — used intentionally in backend tooling: S603, S607, S310, S113, S106
+#  - to be fixed in plan #3 (auth) or plan #5 (jobs/realtime): S110, S112, B904, ASYNC240, ASYNC221, ASYNC230, B905, F841, E711
+ignore = [
+    "E501", "B008", "S101", "UP042", "E741",
+    "E402", "F403",
+    "S603", "S607", "S310", "S113", "S106",
+    "S110", "S112", "B904", "ASYNC240", "ASYNC221", "ASYNC230", "B905", "F841", "E711",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B"]
+"alembic/env.py" = ["E402", "F401"]
+
+[tool.mypy]
+python_version = "3.11"
+strict_optional = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+exclude = ["alembic/versions", "tests/fixtures"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    "ignore::DeprecationWarning:pydantic.*",
+]

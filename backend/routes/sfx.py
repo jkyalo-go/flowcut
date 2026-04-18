@@ -1,10 +1,8 @@
-import asyncio
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from pathlib import Path
 
-from services.sfx_generator import ensure_title_sfx, TITLE_IN_PATH, TITLE_OUT_PATH
+from services.sfx_generator import TITLE_IN_PATH, TITLE_OUT_PATH, ensure_title_sfx
 
 router = APIRouter()
 

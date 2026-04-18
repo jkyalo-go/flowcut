@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from database import Base
-from domain.shared import AutonomyMode, ENUM_SQL_OPTIONS, UUID_SQL_TYPE, WorkspaceLifecycle, new_uuid
+from domain.shared import ENUM_SQL_OPTIONS, UUID_SQL_TYPE, AutonomyMode, WorkspaceLifecycle, new_uuid
 
 
 class Workspace(Base):
