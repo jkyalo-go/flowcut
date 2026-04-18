@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 import services.oauth as _oauth_svc
-from common.time import utc_now
+from common.time import ensure_utc, utc_now
 from config import (
     ENABLE_DEV_LOGIN,
     FRONTEND_URL,
@@ -62,7 +62,7 @@ def _set_session_cookie(response: Response, token: str, expires_at: datetime | N
         token,
         httponly=True,
         secure=SESSION_COOKIE_SECURE,
-        samesite="lax",
+        samesite="strict",
         path="/",
         max_age=max_age,
         expires=expires,
@@ -74,9 +74,10 @@ def _clear_session_cookie(response: Response) -> None:
         SESSION_COOKIE_NAME,
         httponly=True,
         secure=SESSION_COOKIE_SECURE,
-        samesite="lax",
+        samesite="strict",
         path="/",
     )
+    response.delete_cookie("flowcut_csrf", path="/")
 
 
 def _provision_workspace_defaults(workspace: Workspace, db: Session) -> None:
@@ -214,8 +215,20 @@ def me(response: Response, session: AuthSession = Depends(get_current_session), 
 
 
 @router.get("/oauth/google/start")
-async def google_oauth_start():
+async def google_oauth_start(db: Session = Depends(get_db)):
+    from domain.identity import OAuthState
+
     state = _oauth_svc.generate_state_token(SECRET_KEY)
+    verifier, challenge = _oauth_svc.generate_pkce_pair()
+    db.add(
+        OAuthState(
+            state=state,
+            code_verifier=verifier,
+            provider="google",
+            expires_at=utc_now() + timedelta(minutes=10),
+        )
+    )
+    db.commit()
     params = {
         "client_id": GOOGLE_CLIENT_ID,
         "redirect_uri": GOOGLE_REDIRECT_URI,
@@ -224,6 +237,8 @@ async def google_oauth_start():
         "access_type": "offline",
         "prompt": "consent",
         "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
     }
     from urllib.parse import urlencode
     redirect_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
@@ -232,18 +247,34 @@ async def google_oauth_start():
 
 @router.post("/oauth/google/callback")
 async def google_oauth_callback(payload: dict, response: Response, db: Session = Depends(get_db)):
+    from domain.identity import OAuthState
+
     code = payload.get("code", "")
     state = payload.get("state", "")
     try:
         _oauth_svc.verify_state_token(SECRET_KEY, state)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state token")
+
+    state_row = db.query(OAuthState).filter(OAuthState.state == state).first()
+    if not state_row:
+        raise HTTPException(status_code=400, detail="Unknown OAuth state (replay or tampered)")
+    if ensure_utc(state_row.expires_at) < utc_now():
+        db.delete(state_row)
+        db.commit()
+        raise HTTPException(status_code=400, detail="OAuth state expired")
+    code_verifier = state_row.code_verifier
+    # One-time use: remove the state before exchanging so replay cannot succeed
+    db.delete(state_row)
+    db.commit()
+
     try:
         user_info = await _oauth_svc.exchange_google_code(
             code=code,
             redirect_uri=GOOGLE_REDIRECT_URI,
             client_id=GOOGLE_CLIENT_ID,
             client_secret=GOOGLE_CLIENT_SECRET,
+            code_verifier=code_verifier,
         )
     except httpx.HTTPStatusError:
         raise HTTPException(status_code=400, detail="Google token exchange failed")

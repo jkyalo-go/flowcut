@@ -88,3 +88,13 @@ class Invitation(Base):
     status = Column(String, nullable=False, default="pending")
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
+
+
+class OAuthState(Base):
+    __tablename__ = "oauth_states"
+
+    state = Column(String, primary_key=True)
+    code_verifier = Column(String, nullable=False)
+    provider = Column(String, nullable=False, default="google")
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())

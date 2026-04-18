@@ -1,9 +1,11 @@
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from common.time import ensure_utc, utc_now
 from config import FRONTEND_URL
 from contracts.identity import InvitationCreateRequest, SessionResponse
 from database import get_db
@@ -26,6 +28,10 @@ def _require_owner_or_admin(session, db: Session):
     return membership
 
 
+def _is_expired(inv: Invitation) -> bool:
+    return ensure_utc(inv.expires_at) < utc_now()
+
+
 @router.post("")
 def create_invitation(
     payload: InvitationCreateRequest,
@@ -46,7 +52,7 @@ def create_invitation(
         email=email,
         role=role,
         token=invite_token,
-        expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(days=7),
+        expires_at=utc_now() + timedelta(days=7),
     )
     db.add(inv)
     db.commit()
@@ -71,20 +77,17 @@ def create_invitation(
 
 @router.get("/{invite_token}")
 def get_invitation(invite_token: str, db: Session = Depends(get_db)):
+    """Read-only preview. Does not mutate status. A background sweep handles expiry."""
     inv = db.query(Invitation).filter(Invitation.token == invite_token).first()
     if not inv:
         raise HTTPException(404, "Invitation not found")
     workspace = db.query(Workspace).filter(Workspace.id == inv.workspace_id).first()
-    now = datetime.now(UTC).replace(tzinfo=None)
-    expired = inv.expires_at < now
-    if expired and inv.status == "pending":
-        inv.status = "expired"
-        db.commit()
+    effective_status = "expired" if _is_expired(inv) and inv.status == "pending" else inv.status
     return {
         "id": inv.id,
         "email": inv.email,
         "role": inv.role,
-        "status": "expired" if expired else inv.status,
+        "status": effective_status,
         "expires_at": inv.expires_at.isoformat(),
         "workspace_id": str(inv.workspace_id),
         "workspace_name": workspace.name if workspace else "Workspace",
@@ -98,14 +101,21 @@ def accept_invitation(
     db: Session = Depends(get_db),
     session=Depends(get_current_session),
 ):
-    inv = db.query(Invitation).filter(
-        Invitation.token == invite_token,
-        Invitation.status == "pending",
-    ).first()
+    # SELECT ... FOR UPDATE on the invitation row to serialize concurrent accepts.
+    # SQLite ignores with_for_update(), but the UNIQUE(workspace_id, user_id)
+    # constraint on memberships is the real backstop.
+    inv = (
+        db.query(Invitation)
+        .filter(
+            Invitation.token == invite_token,
+            Invitation.status == "pending",
+        )
+        .with_for_update()
+        .first()
+    )
     if not inv:
         raise HTTPException(404, "Invitation not found or already used")
-    now = datetime.now(UTC).replace(tzinfo=None)
-    if inv.expires_at < now:
+    if _is_expired(inv):
         inv.status = "expired"
         db.commit()
         raise HTTPException(400, "Invitation expired")
@@ -116,12 +126,21 @@ def accept_invitation(
     if user.email.strip().lower() != inv.email.strip().lower():
         raise HTTPException(403, "This invitation is for a different account")
 
-    existing = db.query(Membership).filter(
-        Membership.workspace_id == inv.workspace_id,
-        Membership.user_id == user.id,
-    ).first()
-    if not existing:
+    # Idempotent membership creation: rely on UNIQUE(workspace_id, user_id).
+    try:
         db.add(Membership(workspace_id=inv.workspace_id, user_id=user.id, role=inv.role))
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        # Already a member — still proceed to accept and issue session.
+        db.add(inv)  # re-attach after rollback
+        inv = (
+            db.query(Invitation)
+            .filter(Invitation.token == invite_token)
+            .first()
+        )
+        if not inv:
+            raise HTTPException(404, "Invitation disappeared mid-flight")  # noqa: B904
 
     inv.status = "accepted"
     db.commit()

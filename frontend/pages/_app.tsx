@@ -7,7 +7,7 @@ import '@/styles/globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppShell } from '@/components/AppShell'
 import { useAuthStore } from '@/stores/authStore'
-import { api, ApiError } from '@/lib/api'
+import { api, ApiError, setUnauthorizedHandler } from '@/lib/api'
 import type { User, Workspace } from '@/types'
 
 const PUBLIC_PATHS = ['/login', '/register', '/invitations', '/auth']
@@ -34,6 +34,21 @@ const monoFont = IBM_Plex_Mono({
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
   const { user, isLoading, setUser, setWorkspace, setToken, setLoading } = useAuthStore()
+
+  useEffect(() => {
+    // Install global 401 handler: any unauthorized response from the API
+    // clears local state and redirects to /login. Without this, the user
+    // sees a "logged in" UI while every fetch fails.
+    setUnauthorizedHandler(() => {
+      const { clear } = useAuthStore.getState()
+      clear()
+      if (!PUBLIC_PATHS.some(p => router.pathname.startsWith(p))) {
+        const redirect = encodeURIComponent(router.asPath)
+        void router.replace(`/login?redirect=${redirect}`)
+      }
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [router])
 
   useEffect(() => {
     async function bootstrap() {
