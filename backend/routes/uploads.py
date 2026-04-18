@@ -4,9 +4,9 @@ from pathlib import Path
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contracts.media import UploadConfirmRequest, UploadSessionCreate, UploadSessionResponse
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import UploadConfirmRequest, UploadSessionCreate, UploadSessionResponse
 from domain.enterprise import OnboardingState
 from domain.media import Clip, UploadSession
 from domain.projects import Project

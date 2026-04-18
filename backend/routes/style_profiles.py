@@ -1,10 +1,12 @@
 import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from database import get_db
-from domain.projects import StyleProfile
 from dependencies import get_current_workspace
-from services.sie.cold_start import get_genre_centroid, SUPPORTED_GENRES
+from domain.projects import StyleProfile
+from services.sie.cold_start import SUPPORTED_GENRES, get_genre_centroid
 
 router = APIRouter(prefix="/style-profiles", tags=["style-profiles"])
 

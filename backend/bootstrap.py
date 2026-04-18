@@ -1,22 +1,35 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+
 from sqlalchemy import inspect
 
 try:
-    from .database import Base
-    from .database import SessionLocal
-    from .config import ASSETS_DIR, DATA_DIR, PROCESSED_DIR, REMIX_DIR, REQUIRE_DB_MIGRATIONS, STORAGE_DIR, UPLOAD_TMP_DIR
     from . import domain  # noqa: F401
+    from .config import (
+        ASSETS_DIR,
+        DATA_DIR,
+        PROCESSED_DIR,
+        REMIX_DIR,
+        REQUIRE_DB_MIGRATIONS,
+        STORAGE_DIR,
+        UPLOAD_TMP_DIR,
+    )
+    from .database import Base, SessionLocal, engine
     from .services.background_jobs import ensure_due_publish_jobs, process_available_jobs
-    from .database import engine
 except ImportError:
-    from database import Base
-    from database import SessionLocal
-    from config import ASSETS_DIR, DATA_DIR, PROCESSED_DIR, REMIX_DIR, REQUIRE_DB_MIGRATIONS, STORAGE_DIR, UPLOAD_TMP_DIR
     import domain  # noqa: F401
+    from config import (
+        ASSETS_DIR,
+        DATA_DIR,
+        PROCESSED_DIR,
+        REMIX_DIR,
+        REQUIRE_DB_MIGRATIONS,
+        STORAGE_DIR,
+        UPLOAD_TMP_DIR,
+    )
+    from database import Base, SessionLocal, engine
     from services.background_jobs import ensure_due_publish_jobs, process_available_jobs
-    from database import engine
 
 logging.basicConfig(level=logging.INFO)
 
@@ -50,7 +63,6 @@ async def _token_refresh_loop():
         await asyncio.sleep(300)  # every 5 minutes
         def _run_token_refresh():
             import os
-            import asyncio as _asyncio
             db = SessionLocal()
             try:
                 from services.token_refresh import get_tokens_needing_refresh, refresh_token_sync

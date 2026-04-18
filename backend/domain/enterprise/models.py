@@ -2,12 +2,12 @@ from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Strin
 
 from database import Base
 from domain.shared import (
-    ComplianceExportStatus,
     ENUM_SQL_OPTIONS,
+    UUID_SQL_TYPE,
+    ComplianceExportStatus,
     InvoiceStatus,
     JobStatus,
     SubscriptionStatus,
-    UUID_SQL_TYPE,
     new_uuid,
 )
 

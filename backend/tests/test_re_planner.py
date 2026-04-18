@@ -1,11 +1,9 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_re_plan_clip_no_clip_is_noop():
     """re_plan_clip with a missing clip ID does nothing (no crash)."""
     import asyncio
-    from unittest.mock import patch, MagicMock
     mock_db = MagicMock()
     mock_db.query.return_value.filter.return_value.first.return_value = None
 
@@ -16,7 +14,6 @@ def test_re_plan_clip_no_clip_is_noop():
 def test_re_plan_clip_updates_status():
     """re_plan_clip sets clip.status = draft after corrections applied."""
     import asyncio
-    from unittest.mock import patch, MagicMock
 
     mock_clip = MagicMock()
     mock_clip.id = "clip-1"

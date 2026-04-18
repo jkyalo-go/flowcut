@@ -87,8 +87,8 @@ def transcribe_file(
 
         # Extract full transcript
         full_text = ""
-        if (response.results and 
-            response.results.channels and 
+        if (response.results and
+            response.results.channels and
             response.results.channels[0].alternatives):
             full_text = response.results.channels[0].alternatives[0].transcript or ""
 

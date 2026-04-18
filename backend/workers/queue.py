@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from services.pipeline import process_clip
 
 logger = logging.getLogger(__name__)

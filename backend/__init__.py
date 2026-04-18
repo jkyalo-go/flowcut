@@ -1,6 +1,6 @@
+import importlib
 import sys
 from pathlib import Path
-import importlib
 
 package_dir = Path(__file__).resolve().parent
 package_path = str(package_dir)

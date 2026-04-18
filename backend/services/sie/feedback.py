@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 import copy
+
 from services.sie.cold_start import GENRE_CENTROIDS
 
 

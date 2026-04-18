@@ -1,5 +1,6 @@
-from services.circuit_breaker import CircuitBreaker, CircuitOpen
 import time
+
+from services.circuit_breaker import CircuitBreaker, CircuitOpen
 
 
 def test_circuit_opens_after_threshold():

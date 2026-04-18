@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from contracts.projects import SettingsResponse, SettingsUpdate
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.projects import SettingsResponse, SettingsUpdate
 from domain.projects import AppSettings
 
 router = APIRouter()

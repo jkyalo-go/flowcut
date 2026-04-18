@@ -1,5 +1,5 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from services.sie.schemas import EditManifest, TrimAction
 
 
@@ -22,9 +22,8 @@ def _make_workspace():
 def test_planner_returns_edit_manifest(db):
     """generate_edit_plan routes through run_structured_task and returns EditManifest."""
     ws = _make_workspace()
-    from services.sie.planner import generate_edit_plan
     from services.ai_registry import AIProviderRegistry
-    from domain.shared import AIProvider, CredentialSource
+    from services.sie.planner import generate_edit_plan
 
     with patch.object(AIProviderRegistry, "run_structured_task", return_value=_fake_manifest()):
         result = generate_edit_plan(
@@ -43,8 +42,8 @@ def test_planner_returns_edit_manifest(db):
 def test_planner_includes_style_profile_in_prompt(db):
     """Style profile appears in the user prompt passed to run_structured_task."""
     ws = _make_workspace()
-    from services.sie.planner import generate_edit_plan
     from services.ai_registry import AIProviderRegistry
+    from services.sie.planner import generate_edit_plan
 
     captured = {}
     def capture_call(db, workspace, task_type, prompt_builder, response_model, **kwargs):
@@ -80,8 +79,9 @@ def test_critic_triggers_one_refinement_when_confidence_low(monkeypatch, db):
         confidence=0.88,
         reasoning="Refined: strong hook at 5s.",
     )
-    from services.ai_registry import registry as _registry
     import types
+
+    from services.ai_registry import registry as _registry
     _ws = types.SimpleNamespace(id="ws-test", ai_policy=None)
     with patch.object(_registry, "run_text_task", return_value="Hook is weak. Prefer start at 5s."), \
          patch.object(_registry, "run_structured_task", return_value=high_conf_manifest):

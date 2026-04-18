@@ -1,8 +1,10 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Callable, Awaitable
-from scenedetect import open_video, SceneManager, ContentDetector
-from config import SCENE_DETECT_THRESHOLD, BROLL_NUM_CLIPS, BROLL_CLIP_DURATION
+
+from scenedetect import ContentDetector, SceneManager, open_video
+
+from config import BROLL_CLIP_DURATION, BROLL_NUM_CLIPS, SCENE_DETECT_THRESHOLD
 
 ProgressCb = Callable[[float, str], Awaitable[None]] | None
 

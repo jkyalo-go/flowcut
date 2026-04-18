@@ -6,7 +6,7 @@ import json
 import logging
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -56,7 +56,6 @@ from services.youtube_service import get_auth_status as get_youtube_auth_status
 from services.youtube_service import get_auth_url as get_youtube_auth_url
 from services.youtube_service import revoke_credentials as revoke_youtube_credentials
 
-
 MANUAL_PLATFORM_REQUIREMENTS: dict[str, list[str]] = {
     PlatformType.INSTAGRAM_REELS.value: ["access_token", "ig_user_id"],
 }
@@ -76,7 +75,7 @@ def _state_for(db: Session, platform: str, workspace_id: str, code_verifier: str
         platform=platform,
         state=state,
         code_verifier=code_verifier,
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=20),
+        expires_at=datetime.now(UTC) + timedelta(minutes=20),
     )
     db.add(row)
     db.commit()
@@ -87,7 +86,7 @@ def _consume_state(db: Session, platform: str, workspace_id: str, state: str | N
     if not state:
         raise RuntimeError("Invalid or expired auth state.")
     row = db.query(PlatformAuthState).filter(PlatformAuthState.state == state).first()
-    if not row or row.expires_at <= datetime.now(timezone.utc):
+    if not row or row.expires_at <= datetime.now(UTC):
         raise RuntimeError("Invalid or expired auth state.")
     row_platform = row.platform.value if hasattr(row.platform, "value") else str(row.platform)
     if row_platform != platform or row.workspace_id != workspace_id:
@@ -311,7 +310,7 @@ def complete_platform_auth(db: Session, workspace_id: str | None, platform: str,
             account_id=str(user_data.get("open_id") or token_data.get("open_id", "tiktok-account")),
             access_token=token_data.get("access_token"),
             refresh_token=token_data.get("refresh_token"),
-            token_expiry=datetime.now(timezone.utc) + timedelta(seconds=expires_in) if expires_in else None,
+            token_expiry=datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in else None,
             metadata={"token_response": token_data, "profile": profile_data},
         )
 
@@ -346,7 +345,7 @@ def complete_platform_auth(db: Session, workspace_id: str | None, platform: str,
             account_id=sub,
             access_token=token_data.get("access_token"),
             refresh_token=token_data.get("refresh_token"),
-            token_expiry=datetime.now(timezone.utc) + timedelta(seconds=expires_in) if expires_in else None,
+            token_expiry=datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in else None,
             metadata={"author_urn": f"urn:li:person:{sub}", "token_response": token_data, "profile": profile_data},
         )
 
@@ -383,7 +382,7 @@ def complete_platform_auth(db: Session, workspace_id: str | None, platform: str,
             account_id=user_data.get("id") or "x-account",
             access_token=token_data.get("access_token"),
             refresh_token=token_data.get("refresh_token"),
-            token_expiry=datetime.now(timezone.utc) + timedelta(seconds=expires_in) if expires_in else None,
+            token_expiry=datetime.now(UTC) + timedelta(seconds=expires_in) if expires_in else None,
             metadata={"token_response": token_data, "profile": me_data},
         )
 
@@ -435,7 +434,7 @@ def disconnect_platform_auth(db: Session, workspace_id: str, platform: str) -> N
 
 
 def ensure_valid_platform_connection(db: Session, connection: PlatformConnection) -> PlatformConnection:
-    if not connection.token_expiry or connection.token_expiry > datetime.now(timezone.utc) + timedelta(minutes=2):
+    if not connection.token_expiry or connection.token_expiry > datetime.now(UTC) + timedelta(minutes=2):
         return connection
     platform = connection.platform.value if hasattr(connection.platform, "value") else str(connection.platform)
     if not connection.refresh_token:
@@ -498,7 +497,7 @@ def ensure_valid_platform_connection(db: Session, connection: PlatformConnection
     connection.refresh_token = _encrypt_token_str(new_refresh) if new_refresh else connection.refresh_token
     expires_in = int(refreshed.get("expires_in") or 0)
     if expires_in:
-        connection.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        connection.token_expiry = datetime.now(UTC) + timedelta(seconds=expires_in)
     metadata = {}
     if connection.metadata_json:
         try:

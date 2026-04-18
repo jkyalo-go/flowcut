@@ -1,10 +1,13 @@
 from __future__ import annotations
-from typing import TypedDict, Annotated, List, Optional, Any
+
 import operator
-from langgraph.graph import StateGraph, END
-from services.sie.schemas import EditManifest
-from services.sie import workers, planner, critic, gates, memory
+from typing import Annotated, TypedDict
+
+from langgraph.graph import END, StateGraph
+
 from database import SessionLocal
+from services.sie import critic, gates, memory, planner, workers
+from services.sie.schemas import EditManifest
 
 
 class SIEState(TypedDict):
@@ -12,20 +15,20 @@ class SIEState(TypedDict):
     workspace_id: str
     profile_id: str
     video_path: str
-    gcs_uri: Optional[str]
+    gcs_uri: str | None
     footage_duration_sec: float
     style_doc: dict
     dimension_locks: dict
-    mem0_user_id: Optional[str]
-    scenes: List[dict]
+    mem0_user_id: str | None
+    scenes: list[dict]
     transcript: dict
-    visual_moments: List[dict]
-    ranked_moments: List[dict]
-    episodic_context: List[dict]
-    edit_manifest: Optional[EditManifest]
+    visual_moments: list[dict]
+    ranked_moments: list[dict]
+    episodic_context: list[dict]
+    edit_manifest: EditManifest | None
     gate_passed: bool
-    gate_error: Optional[str]
-    errors: Annotated[List[str], operator.add]
+    gate_error: str | None
+    errors: Annotated[list[str], operator.add]
 
 
 async def _analysis_node(state: SIEState) -> dict:

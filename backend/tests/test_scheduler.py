@@ -1,5 +1,6 @@
-from services.scheduler import score_slot, find_gaps, DEFAULT_HEATMAP
 from datetime import datetime
+
+from services.scheduler import DEFAULT_HEATMAP, find_gaps, score_slot
 
 
 def test_score_slot_returns_float_0_to_1():

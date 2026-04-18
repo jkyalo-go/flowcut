@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_send_email_sends_via_smtp(monkeypatch):
@@ -11,6 +11,7 @@ def test_send_email_sends_via_smtp(monkeypatch):
     with patch("smtplib.SMTP", return_value=mock_smtp.__enter__.return_value):
         mock_smtp.__enter__.return_value.sendmail = MagicMock()
         import importlib
+
         import services.email_service as em
         importlib.reload(em)
         with patch("smtplib.SMTP") as smtp_cls:
@@ -29,6 +30,7 @@ def test_send_email_sends_via_smtp(monkeypatch):
 def test_send_email_returns_false_on_smtp_error(monkeypatch):
     monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
     import importlib
+
     import services.email_service as em
     importlib.reload(em)
     with patch("smtplib.SMTP", side_effect=Exception("Connection refused")):
@@ -39,6 +41,7 @@ def test_send_email_returns_false_on_smtp_error(monkeypatch):
 def test_send_email_returns_false_without_smtp_host(monkeypatch):
     monkeypatch.delenv("SMTP_HOST", raising=False)
     import importlib
+
     import services.email_service as em
     importlib.reload(em)
     result = em.send_email("x@x.com", "sub", "<p>body</p>")

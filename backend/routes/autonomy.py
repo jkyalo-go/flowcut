@@ -1,12 +1,9 @@
 import asyncio
 import json
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from database import get_db
-from dependencies import get_current_user, get_current_workspace
 from contracts.automation import (
     AuditLogResponse,
     AutonomySettingsResponse,
@@ -16,6 +13,8 @@ from contracts.automation import (
 )
 from contracts.media import ClipResponse
 from contracts.platforms import CalendarSlotResponse
+from database import get_db
+from dependencies import get_current_user, get_current_workspace
 from domain.automation import AuditLog, Notification
 from domain.media import Clip
 from domain.platforms import CalendarSlot
@@ -37,7 +36,7 @@ def _parse_platforms(raw: str | None) -> list[str]:
 
 @router.get("/settings", response_model=AutonomySettingsResponse)
 def get_workspace_autonomy(
-    project_id: Optional[str] = Query(default=None),
+    project_id: str | None = Query(default=None),
     workspace=Depends(get_current_workspace),
     db: Session = Depends(get_db),
 ):
@@ -179,7 +178,7 @@ async def apply_review_action(
         override = body.edit_manifest_override
         if override and getattr(clip, 'edit_manifest', None):
             try:
-                from services.sie.feedback import diff_manifests, apply_feedback_to_profile
+                from services.sie.feedback import apply_feedback_to_profile, diff_manifests
                 profile = None
                 if getattr(clip, 'profile_id', None):
                     from domain.projects import StyleProfile

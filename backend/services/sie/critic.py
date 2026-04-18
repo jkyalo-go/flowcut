@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 import json
+
 from sqlalchemy.orm import Session
+
 from services.ai_registry import registry
-from services.sie.schemas import EditManifest
 from services.sie import planner as _planner
+from services.sie.schemas import EditManifest
 
 
 def critique_manifest(

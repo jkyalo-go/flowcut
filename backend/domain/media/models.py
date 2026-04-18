@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from database import Base
-from domain.shared import AssetType, ClipType, ENUM_SQL_OPTIONS, ProcessingStatus, ReviewStatus, UUID_SQL_TYPE, new_uuid
+from domain.shared import ENUM_SQL_OPTIONS, UUID_SQL_TYPE, AssetType, ClipType, ProcessingStatus, ReviewStatus, new_uuid
 
 
 class Clip(Base):

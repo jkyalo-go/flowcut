@@ -1,21 +1,21 @@
 import asyncio
-import json
 import logging
 import os
-import time
 from pathlib import Path
+
 from sqlalchemy.orm import Session
+
+from config import BROLL_CLIP_DURATION, BROLL_NUM_CLIPS, BROWSER_COMPATIBLE_CODECS, PROCESSED_DIR
 from database import SessionLocal
 from domain.media import Clip, SubClip, TimelineItem
 from domain.projects import Project
 from domain.shared import ClipType, ProcessingStatus, ReviewStatus
-from services.audit import create_notification, record_audit
-from services.transcriber import extract_audio, transcribe_file
-from services.classifier import classify
-from services.silence_remover import get_duration, get_creation_time
-from services.storage import download_to_temp
 from routes.ws import broadcast
-from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
+from services.audit import create_notification, record_audit
+from services.classifier import classify
+from services.silence_remover import get_creation_time, get_duration
+from services.storage import download_to_temp
+from services.transcriber import extract_audio, transcribe_file
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ async def process_clip(clip_id: str):
         logger.info(f"=== TRANSCRIPT for clip {clip_id} ({len(segments)} segments) ===")
         for seg in segments:
             logger.info(f"  [{seg['start']:.2f}s -> {seg['end']:.2f}s] ({seg['end']-seg['start']:.2f}s) {seg['text']}")
-        logger.info(f"=== END TRANSCRIPT ===")
+        logger.info("=== END TRANSCRIPT ===")
 
         # --- Step 2: Classify (instant, 70-72%) ---
         clip.status = ProcessingStatus.CLASSIFYING

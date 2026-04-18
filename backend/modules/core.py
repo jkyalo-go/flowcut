@@ -1,7 +1,7 @@
 try:
-    from ..routes import auth, billing, enterprise, invitations, overview, settings, style_profiles, ws, workspaces
+    from ..routes import auth, billing, enterprise, invitations, overview, settings, style_profiles, workspaces, ws
 except ImportError:
-    from routes import auth, billing, enterprise, invitations, overview, settings, style_profiles, ws, workspaces
+    from routes import auth, billing, enterprise, invitations, overview, settings, style_profiles, workspaces, ws
 
 from .types import RouterModule
 

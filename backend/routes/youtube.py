@@ -1,19 +1,23 @@
 import asyncio
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from config import PROCESSED_DIR
+from contracts.platforms import YouTubeUploadRequest
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.platforms import YouTubeUploadRequest
 from domain.projects import Project
-from services.youtube_service import (
-    get_auth_url, exchange_code, get_auth_status,
-    upload_video, revoke_credentials,
-)
-from config import PROCESSED_DIR
 from routes.ws import broadcast
+from services.youtube_service import (
+    exchange_code,
+    get_auth_status,
+    get_auth_url,
+    revoke_credentials,
+    upload_video,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

@@ -1,5 +1,6 @@
 import pytest
-from services.sie.gates import run_quality_gates, GateFailure
+
+from services.sie.gates import GateFailure, run_quality_gates
 from services.sie.schemas import EditManifest, TrimAction, ZoomAction
 
 

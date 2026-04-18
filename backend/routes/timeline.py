@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+from contracts.media import TimelineItemResponse, TimelineUpdate
 from database import get_db
 from dependencies import get_current_workspace
-from contracts.media import TimelineItemResponse, TimelineUpdate
-from domain.media import Clip, SubClip, TimelineItem
+from domain.media import TimelineItem
 from domain.projects import Project
 
 router = APIRouter()

@@ -1,12 +1,14 @@
-import pytest
 from contextlib import asynccontextmanager
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session as SASession
 
 from database import Base, get_db
-from domain import identity, media, projects, platforms, ai, automation, enterprise  # noqa: F401 — registers models
+from domain import ai, automation, enterprise, identity, media, platforms, projects  # noqa: F401 — registers models
 from main import app
+
 
 # Suppress the app's background lifespan tasks (watcher queue, platform scheduler)
 # so each TestClient gets a fresh event loop without bound asyncio.Queue objects.
@@ -65,6 +67,7 @@ def client(db):
 def _seed_workspace(db, slug: str, name: str) -> tuple[str, str]:
     """Create workspace + user + membership + auth session. Returns (workspace_id, token)."""
     from uuid import uuid4
+
     from domain.identity import AuthSession, Membership, User, Workspace
 
     ws = Workspace(name=name, slug=slug, plan_tier="starter", storage_quota_mb=1024, raw_retention_days=7)

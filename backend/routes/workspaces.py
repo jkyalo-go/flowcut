@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from contracts.identity import WorkspaceCreate, WorkspaceResponse
 from database import get_db
 from dependencies import get_current_user, get_current_workspace
-from contracts.identity import WorkspaceCreate, WorkspaceResponse
 from domain.enterprise import OnboardingState, QuotaPolicy, SubscriptionPlan, WorkspaceSubscription
 from domain.identity import Membership, Workspace
 from domain.shared import SubscriptionStatus

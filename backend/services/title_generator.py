@@ -1,9 +1,10 @@
 import json
 import logging
+
 from sqlalchemy.orm import Session
 
 from domain.identity import Workspace
-from services.ai_registry import AIProvider, registry
+from services.ai_registry import registry
 
 logger = logging.getLogger(__name__)
 

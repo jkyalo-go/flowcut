@@ -4,12 +4,11 @@ import logging
 import subprocess
 from pathlib import Path
 
+import anthropic
 from google import genai
 from google.genai import types
 
-import anthropic
-
-from config import ANTHROPIC_API_KEY, GOOGLE_API_KEY, REMIX_DIR, REMIX_DURATION
+from config import ANTHROPIC_API_KEY, GOOGLE_API_KEY, REMIX_DURATION
 
 logger = logging.getLogger(__name__)
 
@@ -139,11 +138,11 @@ def select_boundaries_and_generate_prompts(
                 f"Timeline total duration: {total_duration:.1f} seconds\n\n"
                 f"Available boundaries:\n" +
                 "\n".join(boundary_descriptions) +
-                f"\n\nSelect the best boundary(ies) for remix clips. "
-                f"Pick 1 if the video is under ~60 seconds, pick 2 (evenly spaced) "
-                f"if it's longer. Never pick more than 2.\n\n"
-                f"Respond as a JSON array:\n"
-                f'[{{"boundary_index": <int>, "video_prompt": "<prompt>"}}]'
+                "\n\nSelect the best boundary(ies) for remix clips. "
+                "Pick 1 if the video is under ~60 seconds, pick 2 (evenly spaced) "
+                "if it's longer. Never pick more than 2.\n\n"
+                "Respond as a JSON array:\n"
+                '[{"boundary_index": <int>, "video_prompt": "<prompt>"}]'
             ),
         }],
     )

@@ -1,6 +1,5 @@
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
+from unittest.mock import MagicMock, patch
 
 
 def test_run_scene_detection_returns_list(tmp_path):

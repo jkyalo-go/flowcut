@@ -1,5 +1,5 @@
-from domain.shared import ClipType
 from config import TALKING_WORD_THRESHOLD
+from domain.shared import ClipType
 
 
 def classify(transcript: str) -> ClipType:

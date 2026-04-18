@@ -1,10 +1,11 @@
 import asyncio
 import re
 import subprocess
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, Awaitable
-from config import SILENCE_THRESH_DB, MIN_SILENCE_DURATION
+
+from config import MIN_SILENCE_DURATION, SILENCE_THRESH_DB
 
 ProgressCb = Callable[[float, str], Awaitable[None]] | None
 
