@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const apiOrigin = (process.env.NEXT_PUBLIC_API_ORIGIN ?? 'http://localhost:8000').replace(/\/$/, '')
 
@@ -13,4 +15,7 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  disableLogger: true,
+})
