@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from dependencies import get_current_user, get_current_workspace
-from contracts.identity import MembershipResponse, WorkspaceCreate, WorkspaceResponse
+from contracts.identity import WorkspaceCreate, WorkspaceResponse
 from domain.enterprise import OnboardingState, QuotaPolicy, SubscriptionPlan, WorkspaceSubscription
 from domain.identity import Membership, Workspace
 from domain.shared import SubscriptionStatus
@@ -47,7 +47,16 @@ def create_workspace(body: WorkspaceCreate, user=Depends(get_current_user), db: 
     return workspace
 
 
-@router.get("/current/members", response_model=list[MembershipResponse])
+@router.get("/current/members")
 def list_members(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
     rows = db.query(Membership).filter(Membership.workspace_id == workspace.id).all()
-    return rows
+    return [
+        {
+            "id": row.id,
+            "user_id": row.user_id,
+            "email": row.user.email if row.user else "",
+            "name": row.user.name if row.user else "",
+            "role": row.role,
+        }
+        for row in rows
+    ]

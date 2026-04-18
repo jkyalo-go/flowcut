@@ -1,216 +1,240 @@
-import { useEffect, useState } from "react";
-import { useTimelineStore } from "../stores/timelineStore";
-import type { Project } from "../types";
-
-const DEFAULT_DESC_PROMPT =
-  "You are a YouTube description writer. Write a compelling video description " +
-  "based on the transcript and title provided. Include:\n" +
-  "- A hook/summary in the first 2 lines (this shows in search results)\n" +
-  "- Key topics covered\n" +
-  "- A call to action (like, subscribe, comment)\n\n" +
-  "Keep it under 300 words. Do not include timestamps or hashtags.";
+// frontend/src/components/ProjectList.tsx
+import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { api, ApiError } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
+import { useTimelineStore } from '@/stores/timelineStore'
+import type { Project, Clip, TimelineItem } from '@/types'
 
 export function ProjectList() {
-  const {
-    setProject, setClips, setTimelineItems,
-    setSelectedTitle, setVideoDescription, setVideoTags,
-    setVideoCategory, setVideoVisibility, setSelectedThumbnailIndices, setDescSystemPrompt,
-    setThumbnailUrls, setThumbnailText,
-    setRenderProgress, setYoutubeUploadProgress, setYoutubeUploadResult, setYoutubeUploadError,
-    setMusicItems, setVolumeEnvelope,
-    setTitleItems,
-    setCaptionItems,
-    setTimestampItems,
-    setTrackerItems,
-    setSubscribeItems,
-  } = useTimelineStore();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
+  const { workspace } = useAuthStore()
+  const { setProject, setClips, setTimelineItems, uploadProgress } = useTimelineStore()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [error, setError] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadPct, setUploadPct] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetchProjects();
-  }, []);
+    let mounted = true
+    api.get<Project[]>('/api/projects')
+      .then(data => { if (mounted) setProjects(data) })
+      .catch(() => { if (mounted) setError('Failed to load projects') })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
 
-  const fetchProjects = async () => {
+  async function createProject() {
+    if (!name.trim() || !workspace) return
+    setCreating(true)
+    setError('')
     try {
-      const res = await fetch("/api/projects");
-      if (res.ok) setProjects(await res.json());
-    } catch {} finally {
-      setLoading(false);
-    }
-  };
-
-  const openProject = async (id: number) => {
-    const fullRes = await fetch(`/api/projects/${id}`);
-    const proj = await fullRes.json();
-    // Restore saved metadata BEFORE setting project, so auto-save doesn't wipe it
-    setSelectedTitle(proj.selected_title || null);
-    setVideoDescription(proj.video_description || "");
-    setVideoTags(proj.video_tags ? JSON.parse(proj.video_tags) : []);
-    setVideoCategory(proj.video_category || "22");
-    setVideoVisibility(proj.video_visibility || "private");
-    setSelectedThumbnailIndices(proj.locked_thumbnail_indices ? JSON.parse(proj.locked_thumbnail_indices) : []);
-    setDescSystemPrompt(proj.desc_system_prompt || DEFAULT_DESC_PROMPT);
-    setThumbnailUrls(proj.thumbnail_urls ? JSON.parse(proj.thumbnail_urls) : []);
-    setThumbnailText(proj.thumbnail_text || proj.selected_title || "");
-    // Reset render/upload state (render_path on project object handles "Previously exported")
-    setRenderProgress(null);
-    setYoutubeUploadProgress(null);
-    setYoutubeUploadResult(null);
-    setYoutubeUploadError(null);
-
-    // Navigate immediately with existing clips
-    setProject(proj);
-    setClips(proj.clips || []);
-    const tlRes = await fetch(`/api/timeline/${id}`);
-    if (tlRes.ok) setTimelineItems(await tlRes.json());
-    // Load music items
-    fetch(`/api/music/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) {
-          setMusicItems(data.items || []);
-          setVolumeEnvelope(data.volume_envelope || []);
-        }
-      });
-    // Load title items
-    fetch(`/api/titles/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) setTitleItems(data.items || []);
-      });
-    // Load caption items
-    fetch(`/api/captions/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) setCaptionItems(data.items || []);
-      });
-    // Load timestamp items
-    fetch(`/api/timestamps/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) setTimestampItems(data.items || []);
-      });
-    // Load tracker items
-    fetch(`/api/trackers/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) setTrackerItems(data.items || []);
-      });
-    // Load subscribe items
-    fetch(`/api/subscribes/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data) setSubscribeItems(data.items || []);
-      });
-  };
-
-  const createProject = async () => {
-    if (!name.trim()) return;
-    setCreating(true);
-    setError("");
-    try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to create project");
-      }
-      const proj = await res.json();
-      // Reset metadata to defaults BEFORE setting project so auto-save doesn't persist stale values
-      setSelectedTitle(null);
-      setVideoDescription("");
-      setVideoTags([]);
-      setVideoCategory("22");
-      setVideoVisibility("private");
-      setSelectedThumbnailIndices([]);
-      setDescSystemPrompt(DEFAULT_DESC_PROMPT);
-      setThumbnailUrls([]);
-      setThumbnailText("");
-      // Reset render/upload state
-      setRenderProgress(null);
-      setYoutubeUploadProgress(null);
-      setYoutubeUploadResult(null);
-      setYoutubeUploadError(null);
-      setTitleItems([]);
-      setCaptionItems([]);
-      setTimestampItems([]);
-      setTrackerItems([]);
-      setSubscribeItems([]);
-      // Navigate immediately — don't wait for scan
-      setProject(proj);
-      setClips([]);
-      setTimelineItems([]);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Unknown error");
+      const proj = await api.post<Project>('/api/projects', {
+        name: name.trim(),
+        workspace_id: workspace.id,
+      })
+      setProjects(prev => [proj, ...prev])
+      setName('')
+      setShowForm(false)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to create project')
     } finally {
-      setCreating(false);
+      setCreating(false)
     }
-  };
+  }
 
-  const deleteProject = async (e: React.MouseEvent, id: number, projectName: string) => {
-    e.stopPropagation();
-    if (!confirm(`Delete "${projectName}"? This cannot be undone.`)) return;
-    await fetch(`/api/projects/${id}`, { method: "DELETE" });
-    setProjects(projects.filter((p) => p.id !== id));
-  };
+  async function deleteProject(e: React.MouseEvent, id: string, pName: string) {
+    e.stopPropagation()
+    if (!confirm(`Delete "${pName}"?`)) return
+    try {
+      await api.delete(`/api/projects/${id}`)
+      setProjects(prev => prev.filter(p => p.id !== id))
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to delete project')
+    }
+  }
+
+  async function openProject(id: string) {
+    setError('')
+    try {
+      const [proj, clips, timeline] = await Promise.all([
+        api.get<Project>(`/api/projects/${id}`),
+        api.get<Clip[]>(`/api/clips?project_id=${id}`),
+        api.get<{ items?: TimelineItem[] }>(`/api/timeline/${id}`),
+      ])
+      setProject(proj)
+      setClips(clips)
+      setTimelineItems(timeline?.items ?? [])
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Failed to open project')
+    }
+  }
+
+  async function handleUpload(file: File) {
+    if (!workspace) return
+    setUploading(true)
+    setUploadPct(0)
+    setError('')
+    try {
+      const session = await api.post<{ id: string; storage_path: string }>(
+        '/api/uploads/sessions',
+        { workspace_id: workspace.id, filename: file.name, total_size: file.size, media_type: file.type }
+      )
+      await fetch(`/api/uploads/sessions/${session.id}`, {
+        method: 'PUT',
+        credentials: 'include',
+        body: file,
+      })
+      setUploadPct(80)
+      await api.post(`/api/uploads/sessions/${session.id}/complete`, {})
+      setUploadPct(100)
+      const updated = await api.get<Project[]>('/api/projects')
+      setProjects(updated)
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+      setUploadPct(0)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
 
   if (loading) {
-    return <div className="project-list-loading">Loading projects...</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading projects...</div>
   }
 
   return (
-    <div className="project-list">
-      <h2>Projects</h2>
-      <div className="project-grid">
-        {projects.map((p) => (
-          <div key={p.id} className="project-card" onClick={() => openProject(p.id)}>
-            <div className="project-card-header">
-              <h3>{p.name}</h3>
-              <button
-                className="project-card-delete"
-                onClick={(e) => deleteProject(e, p.id, p.name)}
-                title="Delete project"
-              >
-                x
-              </button>
+    <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold">Projects</h1>
+        <Button onClick={() => setShowForm(v => !v)}>New project</Button>
+      </div>
+
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* WebSocket upload progress from timelineStore */}
+      {uploadProgress && Object.entries(uploadProgress).map(([sessionId, { stage, pct }]) => (
+        <div key={sessionId} className="flex items-center gap-3 py-2 px-3 bg-muted rounded text-sm mb-4">
+          <div className="flex-1">
+            <div className="flex justify-between mb-1">
+              <span className="text-xs text-muted-foreground">{stage}</span>
+              <span className="text-xs">{Math.round(pct)}%</span>
             </div>
-            <span className="project-card-clips">{p.clips.length} clips</span>
+            <div className="h-1.5 bg-muted-foreground/20 rounded overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+            </div>
           </div>
-        ))}
-        {!showForm ? (
-          <div className="project-card new-project-card" onClick={() => setShowForm(true)}>
-            <span className="new-project-icon">+</span>
-            <span>New Project</span>
+        </div>
+      ))}
+
+      {showForm && (
+        <Card className="mb-6">
+          <CardContent className="pt-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="proj-name">Project name</Label>
+              <Input
+                id="proj-name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="My awesome video"
+                onKeyDown={e => e.key === 'Enter' && createProject()}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={createProject} disabled={creating || !name.trim()}>
+                {creating ? 'Creating...' : 'Create'}
+              </Button>
+              <Button variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Drag and drop upload zone */}
+      <div
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors mb-6 ${
+          dragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+        }`}
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDragEnd={() => setDragging(false)}
+        onDrop={e => {
+          e.preventDefault()
+          setDragging(false)
+          const file = e.dataTransfer.files[0]
+          if (file) handleUpload(file)
+        }}
+      >
+        {uploading ? (
+          <div className="text-sm text-muted-foreground">
+            <p className="mb-2">Uploading... {uploadPct}%</p>
+            <div className="h-1.5 bg-muted-foreground/20 rounded overflow-hidden max-w-xs mx-auto">
+              <div className="h-full bg-primary transition-all" style={{ width: `${uploadPct}%` }} />
+            </div>
           </div>
         ) : (
-          <div className="project-card new-project-form">
-            <input
-              type="text"
-              placeholder="Project name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-            <div className="btn-row">
-              <button className="btn btn-primary" onClick={createProject} disabled={creating}>
-                {creating ? "Creating..." : "Create"}
-              </button>
-              <button className="btn btn-ghost" onClick={() => { setShowForm(false); setError(""); }}>
-                Cancel
-              </button>
-            </div>
-            {error && <p className="error">{error}</p>}
+          <>
+            <p className="text-sm text-muted-foreground mb-2">Drag & drop a video here, or</p>
+            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              Browse files
+            </Button>
+          </>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="video/*"
+          className="hidden"
+          onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0]) }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {projects.map(p => (
+          <Card
+            key={p.id}
+            className="cursor-pointer hover:border-primary transition-colors"
+            onClick={() => openProject(p.id)}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="text-base truncate">{p.name}</CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={e => deleteProject(e, p.id, p.name)}
+                >
+                  ×
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {p.status && <Badge variant="outline" className="text-xs">{p.status}</Badge>}
+            </CardContent>
+          </Card>
+        ))}
+
+        {projects.length === 0 && !showForm && (
+          <div className="col-span-full text-center py-12 text-muted-foreground text-sm">
+            No projects yet. Upload a video or create a new project.
           </div>
         )}
       </div>
     </div>
-  );
+  )
 }

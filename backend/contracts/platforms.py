@@ -61,3 +61,9 @@ class CalendarSlotResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class GapSlotResponse(BaseModel):
+    platform: str
+    suggested_at: str
+    score: float

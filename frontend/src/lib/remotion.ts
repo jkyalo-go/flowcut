@@ -1,5 +1,16 @@
-import type { TimelineRow, TimelineAction } from "@xzdarcy/react-timeline-editor";
-import type { TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
+import type { EntityId, TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
+
+interface EditorAction {
+  id: string;
+  start: number;
+  end: number;
+  effectId: string;
+}
+
+interface EditorRow {
+  id: string;
+  actions: EditorAction[];
+}
 
 export const FPS = 30;
 
@@ -11,7 +22,7 @@ export function framesToSeconds(frames: number): number {
   return frames / FPS;
 }
 
-export interface VideoAction extends TimelineAction {
+export interface VideoAction extends EditorAction {
   videoUrl: string;
   sourceStart: number;
   sourceEnd: number;
@@ -19,33 +30,33 @@ export interface VideoAction extends TimelineAction {
   clipType: string | null;
 }
 
-export interface MusicAction extends TimelineAction {
+export interface MusicAction extends EditorAction {
   assetName: string;
 }
 
-export interface TitleAction extends TimelineAction {
+export interface TitleAction extends EditorAction {
   titleText: string;
-  titleId: number;
+  titleId: EntityId;
 }
 
-export interface CaptionAction extends TimelineAction {
+export interface CaptionAction extends EditorAction {
   captionText: string;
-  captionId: number;
+  captionId: EntityId;
 }
 
-export interface TimestampAction extends TimelineAction {
+export interface TimestampAction extends EditorAction {
   timestampText: string;
-  timestampId: number;
+  timestampId: EntityId;
 }
 
-export interface TrackerAction extends TimelineAction {
-  trackerId: number;
+export interface TrackerAction extends EditorAction {
+  trackerId: EntityId;
   overlayUrl: string;
 }
 
-export interface SubscribeAction extends TimelineAction {
+export interface SubscribeAction extends EditorAction {
   subscribeText: string;
-  subscribeId: number;
+  subscribeId: EntityId;
 }
 
 /**
@@ -53,7 +64,7 @@ export interface SubscribeAction extends TimelineAction {
  * Produces a video track and optionally a music track.
  */
 export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], titleItems?: TitleItem[], captionItems?: CaptionItem[], timestampItems?: TimestampItem[], trackerItems?: TrackerItem[], subscribeItems?: SubscribeItem[]): {
-  rows: TimelineRow[];
+  rows: EditorRow[];
   actions: VideoAction[];
   totalDuration: number;
 } {
@@ -130,7 +141,7 @@ export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], ti
     subscribeId: si.id,
   }));
 
-  const rows: TimelineRow[] = [
+  const rows: EditorRow[] = [
     { id: "video-track", actions },
     { id: "music-track", actions: musicActions },
     { id: "title-track", actions: titleActions },

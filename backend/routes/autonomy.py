@@ -1,7 +1,8 @@
 import asyncio
 import json
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -35,15 +36,82 @@ def _parse_platforms(raw: str | None) -> list[str]:
 
 
 @router.get("/settings", response_model=AutonomySettingsResponse)
-def get_workspace_autonomy(workspace=Depends(get_current_workspace)):
+def get_workspace_autonomy(
+    project_id: Optional[str] = Query(default=None),
+    workspace=Depends(get_current_workspace),
+    db: Session = Depends(get_db),
+):
+    # Workspace-level defaults
+    mode = workspace.autonomy_mode.value
+    threshold = workspace.autonomy_confidence_threshold
+
+    if project_id:
+        project = db.query(Project).filter(
+            Project.id == project_id,
+            Project.workspace_id == workspace.id,
+        ).first()
+        if project:
+            if project.autonomy_mode is not None:
+                mode = project.autonomy_mode.value
+            if project.autonomy_confidence_threshold is not None:
+                threshold = project.autonomy_confidence_threshold
+
     return AutonomySettingsResponse(
         workspace_id=workspace.id,
-        autonomy_mode=workspace.autonomy_mode.value,
-        confidence_threshold=workspace.autonomy_confidence_threshold,
+        project_id=project_id,
+        autonomy_mode=mode,
+        confidence_threshold=threshold,
         allowed_platforms=_parse_platforms(workspace.autopublish_platforms),
         quiet_hours=workspace.quiet_hours,
         notification_preferences=workspace.notification_preferences,
     )
+
+
+@router.post("/settings", response_model=AutonomySettingsResponse)
+def update_autonomy(
+    body: AutonomySettingsUpdate,
+    workspace=Depends(get_current_workspace),
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if body.project_id:
+        project = db.query(Project).filter(
+            Project.id == body.project_id,
+            Project.workspace_id == workspace.id,
+        ).first()
+        if not project:
+            raise HTTPException(404, "Project not found")
+        project.autonomy_mode = body.autonomy_mode
+        project.autonomy_confidence_threshold = body.confidence_threshold
+        db.commit()
+        record_audit(
+            db,
+            workspace_id=workspace.id,
+            actor="user",
+            user_id=user.id,
+            action="autonomy.project_settings_updated",
+            target_type="project",
+            target_id=str(project.id),
+            metadata=body.model_dump(),
+        )
+    else:
+        workspace.autonomy_mode = body.autonomy_mode
+        workspace.autonomy_confidence_threshold = body.confidence_threshold or workspace.autonomy_confidence_threshold
+        workspace.autopublish_platforms = json.dumps(body.allowed_platforms)
+        workspace.quiet_hours = body.quiet_hours
+        workspace.notification_preferences = body.notification_preferences
+        db.commit()
+        record_audit(
+            db,
+            workspace_id=workspace.id,
+            actor="user",
+            user_id=user.id,
+            action="autonomy.settings_updated",
+            target_type="workspace",
+            target_id=str(workspace.id),
+            metadata=body.model_dump(),
+        )
+    return get_workspace_autonomy(project_id=body.project_id, workspace=workspace, db=db)
 
 
 @router.put("/settings", response_model=AutonomySettingsResponse)
@@ -53,23 +121,7 @@ def update_workspace_autonomy(
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    workspace.autonomy_mode = body.autonomy_mode
-    workspace.autonomy_confidence_threshold = body.confidence_threshold or workspace.autonomy_confidence_threshold
-    workspace.autopublish_platforms = json.dumps(body.allowed_platforms)
-    workspace.quiet_hours = body.quiet_hours
-    workspace.notification_preferences = body.notification_preferences
-    db.commit()
-    record_audit(
-        db,
-        workspace_id=workspace.id,
-        actor="user",
-        user_id=user.id,
-        action="autonomy.settings_updated",
-        target_type="workspace",
-        target_id=str(workspace.id),
-        metadata=body.model_dump(),
-    )
-    return get_workspace_autonomy(workspace)
+    return update_autonomy(body, workspace, user, db)
 
 
 @router.get("/review-queue", response_model=list[ClipResponse])

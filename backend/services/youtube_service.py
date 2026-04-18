@@ -54,19 +54,17 @@ CLIENT_CONFIG = {
     }
 }
 
-
-_pending_flow: Flow | None = None
+def _new_flow() -> Flow:
+    flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES)
+    flow.redirect_uri = YOUTUBE_REDIRECT_URI
+    return flow
 
 
 def get_auth_url(state: str | None = None) -> str:
-    global _pending_flow
     if not YOUTUBE_CLIENT_ID or not YOUTUBE_CLIENT_SECRET:
         raise RuntimeError("YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET must be set")
 
-    _pending_flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES)
-    _pending_flow.redirect_uri = YOUTUBE_REDIRECT_URI
-
-    auth_url, _ = _pending_flow.authorization_url(
+    auth_url, _ = _new_flow().authorization_url(
         access_type="offline",
         prompt="consent",
         include_granted_scopes="true",
@@ -76,11 +74,7 @@ def get_auth_url(state: str | None = None) -> str:
 
 
 def exchange_code(code: str, db: Session, workspace_id: str | None = None) -> str:
-    global _pending_flow
-    if not _pending_flow:
-        raise RuntimeError("No pending auth flow. Start auth first.")
-    flow = _pending_flow
-    _pending_flow = None
+    flow = _new_flow()
     flow.fetch_token(code=code)
 
     creds = flow.credentials
@@ -96,25 +90,26 @@ def exchange_code(code: str, db: Session, workspace_id: str | None = None) -> st
     except Exception as e:
         logger.warning(f"Could not fetch channel name: {e}")
 
-    # Upsert credentials — delete any existing, insert new
-    db.query(PlatformConnection).filter(
-        PlatformConnection.platform == PlatformType.YOUTUBE
-    ).delete()
     if workspace_id is None:
         workspace = db.execute(text("SELECT id FROM workspaces ORDER BY created_at ASC LIMIT 1")).fetchone()
         if workspace is None:
             raise RuntimeError("No workspace available for YouTube connection")
         workspace_id = workspace[0]
 
-    cred = PlatformConnection(
-        workspace_id=workspace_id,
-        platform=PlatformType.YOUTUBE,
-        account_name=channel_name,
-        access_token=_enc(creds.token),
-        refresh_token=_enc(creds.refresh_token),
-        token_expiry=creds.expiry,
-    )
-    db.add(cred)
+    cred = db.query(PlatformConnection).filter(
+        PlatformConnection.workspace_id == workspace_id,
+        PlatformConnection.platform == PlatformType.YOUTUBE,
+    ).first()
+    if cred is None:
+        cred = PlatformConnection(
+            workspace_id=workspace_id,
+            platform=PlatformType.YOUTUBE,
+        )
+        db.add(cred)
+    cred.account_name = channel_name
+    cred.access_token = _enc(creds.token)
+    cred.refresh_token = _enc(creds.refresh_token)
+    cred.token_expiry = creds.expiry
     db.commit()
 
     logger.info(f"YouTube authenticated as: {channel_name}")

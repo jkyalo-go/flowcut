@@ -1,5 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import { useTimelineStore } from "../stores/timelineStore";
+import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  "1": "Film & Animation",
+  "2": "Autos & Vehicles",
+  "10": "Music",
+  "15": "Pets & Animals",
+  "17": "Sports",
+  "20": "Gaming",
+  "22": "People & Blogs",
+  "23": "Comedy",
+  "24": "Entertainment",
+  "25": "News & Politics",
+  "26": "Howto & Style",
+  "27": "Education",
+  "28": "Science & Technology",
+};
 
 export function YouTubeUpload() {
   const project = useTimelineStore((s) => s.project);
@@ -25,64 +53,79 @@ export function YouTubeUpload() {
   const [connecting, setConnecting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const CATEGORY_LABELS: Record<string, string> = {
-    "1": "Film & Animation", "2": "Autos & Vehicles", "10": "Music",
-    "15": "Pets & Animals", "17": "Sports", "20": "Gaming",
-    "22": "People & Blogs", "23": "Comedy", "24": "Entertainment",
-    "25": "News & Politics", "26": "Howto & Style", "27": "Education",
-    "28": "Science & Technology",
-  };
 
   // Check auth status on mount
   useEffect(() => {
-    checkAuth();
+    void (async () => {
+      try {
+        const data = await api.get<{ authenticated: boolean; channel_name: string | null }>(
+          "/api/youtube/status"
+        );
+        setAuth({ authenticated: data.authenticated, channelName: data.channel_name });
+      } catch {
+        void 0;
+      }
+    })();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [setAuth]);
 
-  const checkAuth = async () => {
-    try {
-      const res = await fetch("/api/youtube/status");
-      if (res.ok) {
-        const data = await res.json();
-        setAuth({
-          authenticated: data.authenticated,
-          channelName: data.channel_name,
-        });
-      }
-    } catch {}
-  };
+  // Fetch authenticated blob URL for video preview when dialog opens
+  useEffect(() => {
+    if (!showConfirm || !project) return;
+
+    let mounted = true;
+    let objectUrl: string | null = null;
+
+    fetch(`/api/render/${project.id}/download`, {
+      credentials: "include",
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Preview unavailable");
+        return res.blob();
+      })
+      .then((blob) => {
+        if (!mounted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      })
+      .catch(() => {
+        if (mounted) setPreviewUrl(null);
+      });
+
+    return () => {
+      mounted = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setPreviewUrl(null);
+    };
+  }, [showConfirm, project]);
 
   const connect = async () => {
     setConnecting(true);
     try {
-      const res = await fetch("/api/youtube/auth");
-      if (!res.ok) throw new Error("Failed to start auth");
-      const data = await res.json();
+      const data = await api.get<{ auth_url: string }>("/api/youtube/auth");
 
       // Open OAuth popup
       window.open(data.auth_url, "_blank", "width=600,height=700");
 
-      // Poll for auth completion
+      // Poll for auth completion every 2s
       pollRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch("/api/youtube/status");
-          if (statusRes.ok) {
-            const status = await statusRes.json();
-            if (status.authenticated) {
-              if (pollRef.current) clearInterval(pollRef.current);
-              pollRef.current = null;
-              setAuth({
-                authenticated: true,
-                channelName: status.channel_name,
-              });
-              setConnecting(false);
-            }
+          const status = await api.get<{ authenticated: boolean; channel_name: string | null }>(
+            "/api/youtube/status"
+          );
+          if (status.authenticated) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setAuth({ authenticated: true, channelName: status.channel_name });
+            setConnecting(false);
           }
-        } catch {}
+        } catch {
+          void 0;
+        }
       }, 2000);
 
       // Stop polling after 5 minutes
@@ -99,174 +142,193 @@ export function YouTubeUpload() {
   };
 
   const disconnect = async () => {
-    await fetch("/api/youtube/disconnect", { method: "POST" });
+    try {
+      await api.post("/api/youtube/disconnect");
+    } catch {
+      void 0;
+    }
     setAuth({ authenticated: false, channelName: null });
   };
 
   const upload = async () => {
     if (!project || !selectedTitle) return;
+    setShowConfirm(false);
     setUploading(true);
     setUploadProgress(null);
     setUploadResult(null);
     setUploadError(null);
     try {
-      const res = await fetch(`/api/youtube/upload/${project.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: selectedTitle,
-          description,
-          tags,
-          category_id: category,
-          privacy_status: visibility,
-          thumbnail_index: thumbnailIndices[0] ?? null,
-        }),
+      await api.post(`/api/youtube/upload/${project.id}`, {
+        title: selectedTitle,
+        description,
+        tags,
+        category_id: category,
+        privacy_status: visibility,
+        thumbnail_index: thumbnailIndices[0] ?? null,
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Upload failed");
-      }
-      // Progress comes via WebSocket
-    } catch (e: any) {
-      setUploadError(e.message);
+      // Progress comes via WebSocket → youtubeUploadProgress in store
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : "Upload failed");
       setUploading(false);
     }
   };
 
-  // Reset uploading state when done or error
-  useEffect(() => {
-    if (uploadResult || uploadError) {
-      setUploading(false);
-    }
-  }, [uploadResult, uploadError]);
-
   const hasRender = renderStage === "done" || !!project?.render_path;
+  const isUploading = uploading && !uploadResult && !uploadError;
 
   const canUpload =
     auth.authenticated &&
     hasRender &&
-    selectedTitle &&
-    !uploading &&
+    !!selectedTitle &&
+    !isUploading &&
     !uploadResult;
 
   if (!selectedTitle) return null;
 
   return (
-    <div className="youtube-upload">
-      <h3>Publish</h3>
+    <div className="space-y-3">
+      <p className="text-sm font-medium">Publish</p>
 
-      {/* Auth Section */}
-      <div className="youtube-auth">
+      {/* Auth section */}
+      <div>
         {auth.authenticated ? (
-          <div className="youtube-connected">
-            <span className="youtube-channel">
-              <span className="youtube-dot connected" />
-              Connected as <strong>{auth.channelName}</strong>
-            </span>
-            <button className="btn btn-ghost btn-sm" onClick={disconnect}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <img src="/logos/youtube.svg" alt="YouTube" width={16} height={16} aria-hidden="true" />
+              <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+              <span className="text-sm text-muted-foreground">
+                Connected as <strong>{auth.channelName}</strong>
+              </span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={disconnect}>
               Disconnect
-            </button>
+            </Button>
           </div>
         ) : (
-          <button
-            className="btn btn-primary"
-            onClick={connect}
-            disabled={connecting}
-          >
+          <Button variant="default" size="sm" onClick={connect} disabled={connecting}>
+            <img src="/logos/youtube.svg" alt="" width={16} height={16} aria-hidden="true" className="mr-2 brightness-0 invert" />
             {connecting ? "Waiting for authorization..." : "Connect YouTube"}
-          </button>
+          </Button>
         )}
       </div>
 
-      {/* Upload Section */}
+      {/* Upload section */}
       {auth.authenticated && (
-        <div className="youtube-upload-section">
+        <div className="space-y-3">
           {!hasRender ? (
-            <p className="youtube-hint">Export your video first before publishing.</p>
+            <p className="text-xs text-muted-foreground">
+              Export your video first before publishing.
+            </p>
           ) : (
             <>
-              <button
-                className="btn btn-primary youtube-upload-btn"
+              <Button
+                variant="default"
+                size="sm"
                 onClick={() => setShowConfirm(true)}
                 disabled={!canUpload}
               >
-                {uploading ? "Publishing..." : "Publish to YouTube"}
-              </button>
+                {isUploading ? "Publishing..." : "Publish to YouTube"}
+              </Button>
 
               {uploadProgress !== null && !uploadResult && (
-                <div className="youtube-progress">
-                  <div className="render-bar-bg">
+                <div className="space-y-1">
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                     <div
-                      className="render-bar-fill"
+                      className="h-full rounded-full bg-primary transition-all duration-500"
                       style={{ width: `${uploadProgress}%` }}
                     />
                   </div>
-                  <span className="render-status">{uploadProgress}% uploaded</span>
+                  <p className="text-xs text-muted-foreground">{uploadProgress}% uploaded</p>
                 </div>
               )}
 
               {uploadResult && (
-                <div className="youtube-success">
-                  <span>Published!</span>
-                  <a
-                    href={uploadResult.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="youtube-link"
-                  >
-                    {uploadResult.videoUrl}
-                  </a>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => navigator.clipboard.writeText(uploadResult.videoUrl)}
-                  >
-                    Copy Link
-                  </button>
-                </div>
+                <Alert>
+                  <AlertDescription className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default">Published</Badge>
+                    </div>
+                    <a
+                      href={uploadResult.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary underline underline-offset-2 break-all"
+                    >
+                      {uploadResult.videoUrl}
+                    </a>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(uploadResult.videoUrl)}
+                      >
+                        Copy Link
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
               )}
 
               {uploadError && (
-                <div className="youtube-error">
-                  <span className="error">{uploadError}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={upload}>
-                    Retry
-                  </button>
-                </div>
+                <Alert variant="destructive">
+                  <AlertDescription className="flex items-center justify-between gap-2">
+                    <span>{uploadError}</span>
+                    <Button variant="outline" size="sm" onClick={upload}>
+                      Retry
+                    </Button>
+                  </AlertDescription>
+                </Alert>
               )}
             </>
           )}
         </div>
       )}
-      {/* Confirmation Modal */}
-      {showConfirm && (
-        <div className="modal-overlay" onClick={() => setShowConfirm(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Confirm Publish to YouTube</h3>
 
-            <div className="modal-field">
+      {/* Confirmation Dialog */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Confirm Publish to YouTube</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Video preview */}
+            {previewUrl ? (
               <video
-                className="modal-video-preview"
-                src={`/api/render/${project!.id}/download`}
+                className="w-full rounded-md border"
+                src={previewUrl}
                 controls
               />
+            ) : (
+              <div className="w-full h-32 rounded-md border bg-muted flex items-center justify-center">
+                <span className="text-xs text-muted-foreground">Loading preview...</span>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Title */}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Title
+              </p>
+              <p className="text-sm">{selectedTitle}</p>
             </div>
 
-            <div className="modal-field">
-              <label>Title</label>
-              <p>{selectedTitle}</p>
-            </div>
-
+            {/* Thumbnails */}
             {thumbnailIndices.length > 0 && (
-              <div className="modal-field">
-                <label>Thumbnail</label>
-                <div className="modal-thumbnails">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Thumbnail
+                </p>
+                <div className="flex flex-wrap gap-2">
                   {thumbnailIndices.map((idx) =>
                     thumbnailUrls[idx] ? (
                       <img
                         key={idx}
                         src={thumbnailUrls[idx]}
                         alt={`Thumbnail ${idx + 1}`}
-                        className="modal-thumbnail"
+                        className="h-16 rounded border object-cover"
                       />
                     ) : null
                   )}
@@ -274,49 +336,61 @@ export function YouTubeUpload() {
               </div>
             )}
 
-            <div className="modal-field">
-              <label>Description</label>
-              <p className="modal-description">{description || "(none)"}</p>
+            {/* Description */}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Description
+              </p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {description || "(none)"}
+              </p>
             </div>
 
-            <div className="modal-field">
-              <label>Tags</label>
-              <p>{tags.length ? tags.join(", ") : "(none)"}</p>
+            {/* Tags */}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Tags
+              </p>
+              <p className="text-sm">{tags.length ? tags.join(", ") : "(none)"}</p>
             </div>
 
-            <div className="modal-row">
-              <div className="modal-field">
-                <label>Category</label>
-                <p>{CATEGORY_LABELS[category] || category}</p>
+            {/* Category + Visibility row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Category
+                </p>
+                <p className="text-sm">{CATEGORY_LABELS[category] || category}</p>
               </div>
-              <div className="modal-field">
-                <label>Visibility</label>
-                <p>{visibility.charAt(0).toUpperCase() + visibility.slice(1)}</p>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Visibility
+                </p>
+                <p className="text-sm">
+                  {visibility.charAt(0).toUpperCase() + visibility.slice(1)}
+                </p>
               </div>
             </div>
 
-            <div className="modal-field">
-              <label>Channel</label>
-              <p>{auth.channelName}</p>
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn btn-ghost" onClick={() => setShowConfirm(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  setShowConfirm(false);
-                  upload();
-                }}
-              >
-                Publish
-              </button>
+            {/* Channel */}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Channel
+              </p>
+              <p className="text-sm">{auth.channelName}</p>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={upload}>
+              Publish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

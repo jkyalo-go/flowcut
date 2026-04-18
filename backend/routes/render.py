@@ -1,19 +1,19 @@
-import asyncio
 import subprocess
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from config import GCS_MEDIA_BUCKET, PROCESSED_DIR, STORAGE_BACKEND
+
+from config import PROCESSED_DIR
+from domain.enterprise import BackgroundJob
 from database import get_db
 from dependencies import get_current_workspace
 from domain.projects import Project
-from services.renderer import render_timeline
-from services.storage import download_to_temp, finalize_uploaded_file
+from domain.shared import JobStatus
+from services.background_jobs import enqueue_job
+from services.storage import download_to_temp
 
 router = APIRouter()
-
-_render_tasks: dict[str, asyncio.Task] = {}
 
 
 @router.post("/{project_id}")
@@ -22,33 +22,23 @@ async def start_render(project_id: str, workspace=Depends(get_current_workspace)
     if not project:
         raise HTTPException(404, "Project not found")
 
-    if project_id in _render_tasks and not _render_tasks[project_id].done():
+    active_job = db.query(BackgroundJob).filter(
+        BackgroundJob.job_type == "project_render",
+        BackgroundJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+        BackgroundJob.payload_json.contains(f'"project_id": "{project_id}"'),
+    ).first()
+    if active_job:
         raise HTTPException(409, "Render already in progress")
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     output_path = str(PROCESSED_DIR / f"project_{project_id}_render.mp4")
-
-    async def do_render():
-        await render_timeline(project_id, output_path)
-        persisted_render_path = output_path
-        if STORAGE_BACKEND == "gcs" and GCS_MEDIA_BUCKET:
-            persisted_render_path = finalize_uploaded_file(
-                Path(output_path),
-                f"gs://{GCS_MEDIA_BUCKET}/ws_{workspace.id}/renders/project_{project_id}_render.mp4",
-            )
-        # Save render path to DB
-        from database import SessionLocal
-        render_db = SessionLocal()
-        try:
-            p = render_db.query(Project).filter(Project.id == project_id).first()
-            if p:
-                p.render_path = persisted_render_path
-                render_db.commit()
-        finally:
-            render_db.close()
-
-    task = asyncio.create_task(do_render())
-    _render_tasks[project_id] = task
+    enqueue_job(
+        db,
+        workspace_id=workspace.id,
+        job_type="project_render",
+        correlation_id=project_id,
+        payload={"project_id": project_id},
+    )
 
     return {"ok": True, "output_path": output_path}
 
@@ -58,13 +48,18 @@ async def render_status(project_id: str, workspace=Depends(get_current_workspace
     project = db.query(Project).filter(Project.id == project_id, Project.workspace_id == workspace.id).first()
     if not project:
         raise HTTPException(404, "Project not found")
-    task = _render_tasks.get(project_id)
-    if not task:
-        return {"status": "idle"}
-    if task.done():
-        if task.exception():
-            return {"status": "error", "error": str(task.exception())}
+    latest_job = db.query(BackgroundJob).filter(
+        BackgroundJob.job_type == "project_render",
+        BackgroundJob.payload_json.contains(f'"project_id": "{project_id}"'),
+    ).order_by(BackgroundJob.created_at.desc()).first()
+    if not latest_job:
+        return {"status": "done" if project.render_path else "idle"}
+    if latest_job.status == JobStatus.SUCCEEDED:
         return {"status": "done"}
+    if latest_job.status == JobStatus.RUNNING:
+        return {"status": "rendering"}
+    if latest_job.status == JobStatus.DEAD_LETTER:
+        return {"status": "error", "error": latest_job.last_error}
     return {"status": "rendering"}
 
 

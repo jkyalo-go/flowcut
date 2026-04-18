@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
@@ -8,11 +10,12 @@ from domain.projects import Project
 router = APIRouter()
 
 _connections: dict[str, set[WebSocket]] = {}
+SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "flowcut_session")
 
 
 @router.websocket("/{project_id}")
 async def websocket_endpoint(websocket: WebSocket, project_id: str):
-    token = websocket.query_params.get("token")
+    token = websocket.cookies.get(SESSION_COOKIE_NAME) or websocket.query_params.get("token")
     db: Session = SessionLocal()
     try:
         session = db.query(AuthSession).filter(AuthSession.token == token).first()

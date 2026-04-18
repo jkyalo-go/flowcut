@@ -212,3 +212,4 @@ class UploadSessionResponse(BaseModel):
 
 class UploadConfirmRequest(BaseModel):
     project_id: str
+    total_size: int | None = None

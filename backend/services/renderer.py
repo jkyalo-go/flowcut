@@ -13,8 +13,7 @@ from routes.ws import broadcast
 from services.ducker import compute_volume_envelope
 from services.sfx_generator import TITLE_IN_PATH, TITLE_OUT_PATH, ensure_title_sfx
 from routes.music import _build_timeline_segments
-
-BASE_URL = "http://127.0.0.1:8000"
+from config import RENDER_BASE_URL
 FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 FPS = 30
 
@@ -145,9 +144,9 @@ def _build_input_props(
         "timestampItems": timestamp_data,
         "trackerItems": tracker_data,
         "subscribeItems": subscribe_data,
-        "baseUrl": BASE_URL,
-        "sfxTitleInPath": f"{BASE_URL}/api/sfx/title-in",
-        "sfxTitleOutPath": f"{BASE_URL}/api/sfx/title-out",
+        "baseUrl": RENDER_BASE_URL,
+        "sfxTitleInPath": f"{RENDER_BASE_URL}/api/sfx/title-in",
+        "sfxTitleOutPath": f"{RENDER_BASE_URL}/api/sfx/title-out",
         "durationInFrames": total_frames,
     }
 

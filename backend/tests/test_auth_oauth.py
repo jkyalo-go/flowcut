@@ -30,7 +30,8 @@ def test_oauth_callback_creates_user_and_session(client, db):
     assert resp.status_code == 200
     body = resp.json()
     assert "token" in body
-    assert "workspace_id" in body
+    assert "workspace" in body
+    assert body["workspace"]["plan_tier"] == "starter"
     assert body["user"]["email"] == "creator@gmail.com"
 
 
