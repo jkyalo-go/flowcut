@@ -34,4 +34,14 @@ def create_checkout_session(workspace_id: str, plan_tier: str, success_url: str,
 
 
 def construct_webhook_event(payload: bytes, sig_header: str) -> dict:
+    """Construct and verify a Stripe webhook event.
+
+    Hard-fails with ValueError when STRIPE_WEBHOOK_SECRET is not configured.
+    This is intentional — a silently-unverified webhook is worse than a
+    downed webhook because an attacker can forge events for free.
+    """
+    if not STRIPE_WEBHOOK_SECRET:
+        raise ValueError(
+            "STRIPE_WEBHOOK_SECRET is not set; refusing to process unverified webhook payloads"
+        )
     return stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)

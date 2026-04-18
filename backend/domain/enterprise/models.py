@@ -148,3 +148,12 @@ class BackgroundJob(Base):
     last_error = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class StripeEvent(Base):
+    __tablename__ = "stripe_events"
+
+    event_id = Column(String, primary_key=True)
+    event_type = Column(String, nullable=False)
+    received_at = Column(DateTime, server_default=func.now())
+    processed_at = Column(DateTime, nullable=True)

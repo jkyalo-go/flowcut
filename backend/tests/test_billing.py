@@ -33,13 +33,14 @@ def test_webhook_subscription_created(client, workspace_a, db):
             }
         },
     }
-    with patch("stripe.Webhook.construct_event", return_value=event):
+    with patch("services.stripe_service.STRIPE_WEBHOOK_SECRET", "test-secret"), \
+         patch("stripe.Webhook.construct_event", return_value=event):
         resp = client.post(
             "/billing/webhook",
             content=b"{}",
             headers={"stripe-signature": "t=1,v1=abc"},
         )
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"got {resp.status_code}: {resp.text}"
 
 
 def test_webhook_subscription_cancelled(client, workspace_a, db):
@@ -54,7 +55,8 @@ def test_webhook_subscription_cancelled(client, workspace_a, db):
             }
         },
     }
-    with patch("stripe.Webhook.construct_event", return_value=event):
+    with patch("services.stripe_service.STRIPE_WEBHOOK_SECRET", "test-secret"), \
+         patch("stripe.Webhook.construct_event", return_value=event):
         resp = client.post(
             "/billing/webhook",
             content=b"{}",

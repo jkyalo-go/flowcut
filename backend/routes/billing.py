@@ -2,11 +2,13 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from common.time import utc_now
 from database import get_db
 from dependencies import get_current_workspace
-from domain.enterprise import SubscriptionPlan, WorkspaceSubscription
+from domain.enterprise import StripeEvent, SubscriptionPlan, WorkspaceSubscription
 from domain.shared import SubscriptionStatus
 from services.stripe_service import construct_webhook_event, create_checkout_session
 
@@ -37,10 +39,20 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     try:
         event = construct_webhook_event(payload, sig)
     except Exception as e:
-        raise HTTPException(400, f"Webhook error: {e}")
+        raise HTTPException(400, f"Webhook error: {e}")  # noqa: B904
 
+    event_id = event.get("id")
     etype = event["type"]
     obj = event["data"]["object"]
+
+    # Idempotency: attempt to insert the event_id. UNIQUE violation ⇒ already processed.
+    if event_id:
+        db.add(StripeEvent(event_id=event_id, event_type=etype))
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            return {"status": "ok", "idempotent": True}
 
     if etype == "customer.subscription.created":
         _handle_sub_created(obj, db)
@@ -49,6 +61,12 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     elif etype == "customer.subscription.deleted":
         _handle_sub_deleted(obj, db)
 
+    # Mark processed
+    if event_id:
+        ev = db.query(StripeEvent).filter(StripeEvent.event_id == event_id).first()
+        if ev:
+            ev.processed_at = utc_now()
+    db.commit()
     return {"status": "ok"}
 
 
