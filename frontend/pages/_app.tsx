@@ -58,8 +58,17 @@ export default function App({ Component, pageProps }: AppProps) {
         setWorkspace(data.workspace)
         setToken(data.token)
       } catch (e) {
-        if (!(e instanceof ApiError && e.status === 401)) {
-          console.error('[bootstrap] auth check failed:', e)
+        // Bootstrap is best-effort: any non-success means "treat as signed-out".
+        // This covers 401 (no session), 5xx (backend cold/down in dev), and
+        // network errors. We log at info-level for diagnostics but do not
+        // surface to the dev error overlay — an unauthenticated user with a
+        // dead backend is not a React/runtime error.
+        if (e instanceof ApiError) {
+          if (e.status !== 401) {
+            console.info('[bootstrap] backend returned', e.status, '— treating as unauthenticated')
+          }
+        } else {
+          console.info('[bootstrap] network error, continuing as unauthenticated:', e)
         }
       } finally {
         setLoading(false)
