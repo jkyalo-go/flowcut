@@ -1,11 +1,34 @@
 try:
-    from ..routes import auth, billing, enterprise, invitations, overview, settings, style_profiles, workspaces, ws
+    from ..routes import (
+        auth,
+        billing,
+        enterprise,
+        health,
+        invitations,
+        overview,
+        settings,
+        style_profiles,
+        workspaces,
+        ws,
+    )
 except ImportError:
-    from routes import auth, billing, enterprise, invitations, overview, settings, style_profiles, workspaces, ws
+    from routes import (
+        auth,
+        billing,
+        enterprise,
+        health,
+        invitations,
+        overview,
+        settings,
+        style_profiles,
+        workspaces,
+        ws,
+    )
 
 from .types import RouterModule
 
 CORE_MODULES = [
+    RouterModule(prefix="", tags=["health"], router=health.router),
     RouterModule(prefix="/api/auth", tags=["auth"], router=auth.router),
     RouterModule(prefix="/api/workspaces", tags=["workspaces"], router=workspaces.router),
     RouterModule(prefix="/api/overview", tags=["overview"], router=overview.router),
