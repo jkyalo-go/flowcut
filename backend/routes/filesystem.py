@@ -1,3 +1,5 @@
+import logging
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -11,6 +13,8 @@ from dependencies import get_current_workspace
 from domain.media import Asset, Clip, TrackerItem
 from domain.projects import Project
 from services.storage import download_to_temp, is_gcs_uri, resolve_storage_path, signed_url_for
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -27,8 +31,34 @@ ALLOWED_LOCAL_ROOTS = tuple(
 
 
 def _path_in_allowed_roots(path: Path) -> bool:
-    resolved = path.resolve()
-    return any(resolved.is_relative_to(root) for root in ALLOWED_LOCAL_ROOTS)
+    # Reject symlinks outright — resolve() follows them, which could have let
+    # a symlink under STORAGE_DIR escape to an arbitrary location. Check
+    # every component of the real path against both a strict commonpath
+    # comparison AND the symlink-status of every intermediate directory.
+    try:
+        resolved = path.resolve(strict=True)
+    except (FileNotFoundError, RuntimeError):
+        return False
+    # Any path component pointing at a symlink is suspect — refuse.
+    current = resolved
+    while True:
+        if current.is_symlink():
+            return False
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+    # commonpath-based containment check (more robust than is_relative_to
+    # because it operates on the fully-resolved real path).
+    resolved_str = str(resolved)
+    for root in ALLOWED_LOCAL_ROOTS:
+        try:
+            if os.path.commonpath([resolved_str, str(root)]) == str(root):
+                return True
+        except ValueError:
+            # Different drives on Windows, or incompatible paths — not a match.
+            continue
+    return False
 
 
 def _workspace_owns_path(db: Session, workspace_id: str, path: str) -> bool:
@@ -74,7 +104,7 @@ async def serve_video(
 
     range_header = request.headers.get("range") if request else None
     file_size = p.stat().st_size
-    print(f"[serve-video] {p.name} size={file_size} range={range_header}")
+    logger.debug("serve-video name=%s size=%d range=%s", p.name, file_size, range_header)
 
     suffix = p.suffix.lower()
     media_types = {
