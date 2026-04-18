@@ -47,7 +47,9 @@ export function useAutoSaveMetadata() {
         setSaveStatus("saved");
         fadeTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
       } catch {
-        setSaveStatus("idle");
+        // Do not silently drop back to "idle" — surface a distinct "error"
+        // state so the UI can tell the user their changes were not saved.
+        setSaveStatus("error");
       }
     }, 1000);
 

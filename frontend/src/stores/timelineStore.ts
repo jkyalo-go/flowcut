@@ -91,8 +91,8 @@ interface TimelineStore {
   setRemixLoading: (loading: boolean) => void;
 
   // Auto-save status
-  saveStatus: "idle" | "saving" | "saved";
-  setSaveStatus: (s: "idle" | "saving" | "saved") => void;
+  saveStatus: "idle" | "saving" | "saved" | "error";
+  setSaveStatus: (s: "idle" | "saving" | "saved" | "error") => void;
 
   // YouTube upload
   youtubeAuth: { authenticated: boolean; channelName: string | null };
