@@ -113,6 +113,17 @@ async def lifespan(_app):
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     UPLOAD_TMP_DIR.mkdir(parents=True, exist_ok=True)
     _validate_database_schema()
+
+    # Seed the AI provider catalog (idempotent — does nothing if rows exist).
+    try:
+        from services.ai_catalog_seed import seed_ai_catalog
+        seed_db = SessionLocal()
+        try:
+            seed_ai_catalog(seed_db)
+        finally:
+            seed_db.close()
+    except Exception as exc:
+        logging.warning("AI catalog seed skipped: %s", exc)
     scheduler_task = asyncio.create_task(_platform_scheduler())
     perf_task = asyncio.create_task(_performance_feedback_loop())
     refresh_task = asyncio.create_task(_token_refresh_loop())
