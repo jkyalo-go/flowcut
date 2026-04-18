@@ -32,9 +32,10 @@ function formatSlotDate(value?: string | null) {
   })
 }
 
-function saveLabel(status: 'idle' | 'saving' | 'saved') {
-  if (status === 'saving') return 'Saving metadata'
+function saveLabel(status: 'idle' | 'saving' | 'saved' | 'error') {
+  if (status === 'saving') return 'Saving metadata…'
   if (status === 'saved') return 'Metadata saved'
+  if (status === 'error') return 'Save failed — changes not persisted'
   return 'Autosave idle'
 }
 

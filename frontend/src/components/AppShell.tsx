@@ -107,12 +107,12 @@ function RailContent({
           <div className="mt-5">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-left transition hover:border-primary/40 hover:bg-background">
+                <button type="button" aria-label={`Switch workspace. Current: ${workspace?.name ?? 'none'}`} className="flex w-full items-center justify-between rounded-2xl border border-border/70 bg-background/70 px-4 py-3 text-left transition hover:border-primary/40 hover:bg-background">
                   <div>
                     <p className="text-sm font-medium text-foreground">{workspace?.name ?? 'Workspace'}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">Switch workspace</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-64">
@@ -305,7 +305,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button type="button" className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/80 px-3 py-2 transition hover:border-primary/30 hover:bg-card">
+                <button type="button" aria-label={`Account menu for ${user?.name ?? 'FlowCut user'}`} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/80 px-3 py-2 transition hover:border-primary/30 hover:bg-card">
                   <Avatar className="h-9 w-9 text-xs">
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
