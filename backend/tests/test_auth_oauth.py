@@ -1,4 +1,17 @@
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
+
+
+def _seed_oauth_state(db, state: str, verifier: str = "test-verifier") -> None:
+    from common.time import utc_now
+    from domain.identity import OAuthState
+    db.add(OAuthState(
+        state=state,
+        code_verifier=verifier,
+        provider="google",
+        expires_at=utc_now() + timedelta(minutes=10),
+    ))
+    db.commit()
 
 
 def test_oauth_start_returns_redirect_url(client):
@@ -15,6 +28,7 @@ def test_oauth_callback_creates_user_and_session(client, db):
     from config import SECRET_KEY
     from services.oauth import generate_state_token
     valid_state = generate_state_token(SECRET_KEY)
+    _seed_oauth_state(db, valid_state)
     fake_user_info = {
         "sub": "google-uid-123",
         "email": "creator@gmail.com",
@@ -45,8 +59,10 @@ def test_oauth_callback_reuses_existing_user(client, db, workspace_a):
 
     from config import SECRET_KEY
     from services.oauth import generate_state_token
-    state1 = generate_state_token(SECRET_KEY)
-    state2 = generate_state_token(SECRET_KEY)
+    state1 = generate_state_token(SECRET_KEY, workspace_id="ws-1")
+    state2 = generate_state_token(SECRET_KEY, workspace_id="ws-2")
+    _seed_oauth_state(db, state1, "v1")
+    _seed_oauth_state(db, state2, "v2")
     with patch("services.oauth.exchange_google_code", AsyncMock(return_value=fake_user_info)):
         resp1 = client.post("/api/auth/oauth/google/callback", json={"code": "c1", "state": state1})
         resp2 = client.post("/api/auth/oauth/google/callback", json={"code": "c2", "state": state2})

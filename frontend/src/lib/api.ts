@@ -49,6 +49,18 @@ function newRequestId(): string {
   return `rid-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  unauthorizedHandler = fn
+}
+
 function parseJson<T>(value: unknown, fallback: T): T {
   if (value == null) return fallback
   if (Array.isArray(fallback)) {
@@ -68,12 +80,19 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const contentTypeHeaders: HeadersInit = init.body instanceof FormData
     ? {}
     : { 'Content-Type': 'application/json' }
+  const method = (init.method ?? 'GET').toUpperCase()
+  const csrfHeaders: Record<string, string> = {}
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    const csrf = readCookie('flowcut_csrf')
+    if (csrf) csrfHeaders['X-CSRF-Token'] = csrf
+  }
   const res = await fetch(path, {
     ...init,
     credentials: 'include',
     headers: {
       ...contentTypeHeaders,
       'X-Request-ID': newRequestId(),
+      ...csrfHeaders,
       ...(init.headers ?? {}),
     },
   })
@@ -84,6 +103,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       message = data.detail ?? data.message ?? message
     } catch {
       void 0
+    }
+    if (res.status === 401 && unauthorizedHandler) {
+      try { unauthorizedHandler() } catch { void 0 }
     }
     throw new ApiError(res.status, message)
   }
