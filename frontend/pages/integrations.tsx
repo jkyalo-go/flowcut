@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/router'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { BrandLogo } from '@/components/BrandLogo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -208,15 +209,18 @@ export default function IntegrationsPage() {
               <Card key={platform.platform}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <CardTitle className="text-base">{platform.label}</CardTitle>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {platform.connected
-                          ? platform.ready
-                            ? `Connected as ${platform.connection?.account_name ?? platform.display_name}`
-                            : `Missing ${platform.missing_fields.join(', ')}`
-                          : 'No active connection'}
-                      </p>
+                    <div className="flex items-start gap-3">
+                      <BrandLogo slug={platform.platform} label={platform.label} size={28} className="mt-0.5" />
+                      <div>
+                        <CardTitle className="text-base">{platform.label}</CardTitle>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {platform.connected
+                            ? platform.ready
+                              ? `Connected as ${platform.connection?.account_name ?? platform.display_name}`
+                              : `Missing ${platform.missing_fields.join(', ')}`
+                            : 'No active connection'}
+                        </p>
+                      </div>
                     </div>
                     <Badge variant={platform.ready ? 'default' : platform.connected ? 'secondary' : 'outline'}>
                       {platform.status}
@@ -301,9 +305,12 @@ export default function IntegrationsPage() {
                 ) : providers.map((provider) => (
                   <div key={provider.id} className="rounded-2xl border border-border/70 bg-background/70 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{provider.display_name}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{provider.provider} • {provider.model_key}</p>
+                      <div className="flex items-center gap-3">
+                        <BrandLogo slug={provider.provider} label={provider.display_name} size={24} />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{provider.display_name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{provider.provider} • {provider.model_key}</p>
+                        </div>
                       </div>
                       <Badge variant={provider.enabled ? 'default' : 'outline'}>
                         {provider.enabled ? 'Enabled' : 'Disabled'}
