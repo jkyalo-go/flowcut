@@ -14,6 +14,7 @@ try:
         REQUIRE_DB_MIGRATIONS,
         STORAGE_DIR,
         UPLOAD_TMP_DIR,
+        validate_production_config,
     )
     from .database import Base, SessionLocal, engine
     from .services.background_jobs import ensure_due_publish_jobs, process_available_jobs
@@ -27,6 +28,7 @@ except ImportError:
         REQUIRE_DB_MIGRATIONS,
         STORAGE_DIR,
         UPLOAD_TMP_DIR,
+        validate_production_config,
     )
     from database import Base, SessionLocal, engine
     from services.background_jobs import ensure_due_publish_jobs, process_available_jobs
@@ -103,6 +105,7 @@ async def _platform_scheduler():
 
 @asynccontextmanager
 async def lifespan(_app):
+    validate_production_config()
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)

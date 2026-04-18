@@ -11,10 +11,10 @@ def test_oauth_start_returns_redirect_url(client):
 
 
 def test_oauth_callback_creates_user_and_session(client, db):
-    import os
 
+    from config import SECRET_KEY
     from services.oauth import generate_state_token
-    valid_state = generate_state_token(os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod"))
+    valid_state = generate_state_token(SECRET_KEY)
     fake_user_info = {
         "sub": "google-uid-123",
         "email": "creator@gmail.com",
@@ -42,11 +42,11 @@ def test_oauth_callback_reuses_existing_user(client, db, workspace_a):
         "name": "Workspace A",
         "picture": None,
     }
-    import os
 
+    from config import SECRET_KEY
     from services.oauth import generate_state_token
-    state1 = generate_state_token(os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod"))
-    state2 = generate_state_token(os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod"))
+    state1 = generate_state_token(SECRET_KEY)
+    state2 = generate_state_token(SECRET_KEY)
     with patch("services.oauth.exchange_google_code", AsyncMock(return_value=fake_user_info)):
         resp1 = client.post("/api/auth/oauth/google/callback", json={"code": "c1", "state": state1})
         resp2 = client.post("/api/auth/oauth/google/callback", json={"code": "c2", "state": state2})
@@ -76,8 +76,9 @@ def test_token_roundtrip_encryption():
 
 
 def test_token_refresh_skips_non_expiring(db, workspace_a):
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
+    from common.time import utc_now
     from domain.platforms import PlatformAuth
     from services.token_crypto import encrypt_token
     ws_id, _ = workspace_a
@@ -85,7 +86,7 @@ def test_token_refresh_skips_non_expiring(db, workspace_a):
     pa = PlatformAuth(
         workspace_id=ws_id, platform="youtube",
         access_token_enc=encrypt_token("tok"),
-        token_expires_at=datetime.utcnow() + timedelta(hours=1),
+        token_expires_at=utc_now() + timedelta(hours=1),
         status="active",
     )
     db.add(pa)

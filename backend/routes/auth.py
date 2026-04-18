@@ -9,7 +9,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 import services.oauth as _oauth_svc
-from config import FRONTEND_URL
+from common.time import utc_now
+from config import (
+    ENABLE_DEV_LOGIN,
+    FRONTEND_URL,
+    SECRET_KEY,
+    SESSION_COOKIE_NAME,
+    SESSION_COOKIE_SECURE,
+)
 from contracts.identity import (
     DevLoginRequest,
     LoginRequest,
@@ -35,10 +42,6 @@ def _verify_password(plain: str, hashed: str) -> bool:
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", f"{FRONTEND_URL}/auth/callback")
-SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-prod")
-SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "flowcut_session")
-SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").strip().lower() in {"1", "true", "yes", "on"}
-ENABLE_DEV_LOGIN = os.getenv("ENABLE_DEV_LOGIN", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 router = APIRouter()
 
@@ -47,16 +50,13 @@ def _slugify(name: str) -> str:
     return name.strip().lower().replace(" ", "-")
 
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
-
-
 def _set_session_cookie(response: Response, token: str, expires_at: datetime | None) -> None:
     max_age = None
     expires = None
     if expires_at is not None:
-        max_age = max(int((expires_at - _utc_now()).total_seconds()), 0)
-        expires = expires_at.replace(tzinfo=UTC)
+        expires_aware = expires_at if expires_at.tzinfo is not None else expires_at.replace(tzinfo=UTC)
+        max_age = max(int((expires_aware - utc_now()).total_seconds()), 0)
+        expires = expires_aware
     response.set_cookie(
         SESSION_COOKIE_NAME,
         token,
@@ -101,7 +101,7 @@ def _create_session(user: User, db: Session, response: Response, *, workspace: W
     if ws is None:
         raise HTTPException(status_code=422, detail="User has no workspace")
     token = uuid4().hex
-    expires_at = _utc_now() + ttl
+    expires_at = utc_now() + ttl
     db.add(AuthSession(user_id=user.id, workspace_id=ws.id, token=token, expires_at=expires_at))
     db.commit()
     _set_session_cookie(response, token, expires_at)

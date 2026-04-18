@@ -1,13 +1,10 @@
-import os
-from datetime import datetime
-
 from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from common.time import ensure_utc, utc_now
+from config import SESSION_COOKIE_NAME
 from database import get_db
 from domain.identity import AdminUser, AuthSession, Membership, User, Workspace
-
-SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "flowcut_session")
 
 
 def _extract_bearer_token(authorization: str | None) -> str | None:
@@ -32,7 +29,7 @@ def get_current_session(
     session = db.query(AuthSession).filter(AuthSession.token == token).first()
     if not session:
         raise HTTPException(401, "Invalid session token")
-    if session.expires_at and session.expires_at < datetime.utcnow():
+    if session.expires_at and ensure_utc(session.expires_at) < utc_now():
         raise HTTPException(status_code=401, detail="Session expired")
     return session
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import httpx
 from sqlalchemy.orm import Session
 
+from common.time import utc_now
 from domain.platforms import PlatformAuth
 from services.token_crypto import decrypt_token, encrypt_token
 
@@ -21,7 +22,7 @@ PLATFORM_REFRESH_URLS = {
 
 
 def get_tokens_needing_refresh(db: Session, refresh_window_minutes: int = 10) -> list[PlatformAuth]:
-    cutoff = datetime.utcnow() + timedelta(minutes=refresh_window_minutes)
+    cutoff = utc_now() + timedelta(minutes=refresh_window_minutes)
     return (
         db.query(PlatformAuth)
         .filter(
@@ -66,7 +67,7 @@ async def refresh_token(pa: PlatformAuth, db: Session, client_id: str, client_se
         if "refresh_token" in data:
             pa.refresh_token_enc = encrypt_token(data["refresh_token"])
         if "expires_in" in data:
-            pa.token_expires_at = datetime.utcnow() + timedelta(seconds=int(data["expires_in"]))
+            pa.token_expires_at = utc_now() + timedelta(seconds=int(data["expires_in"]))
         pa.status = "active"
         pa.error_message = None
         db.commit()
@@ -116,7 +117,7 @@ def refresh_token_sync(pa: PlatformAuth, db: Session, client_id: str, client_sec
         if "refresh_token" in data:
             pa.refresh_token_enc = encrypt_token(data["refresh_token"])
         if "expires_in" in data:
-            pa.token_expires_at = datetime.utcnow() + timedelta(seconds=int(data["expires_in"]))
+            pa.token_expires_at = utc_now() + timedelta(seconds=int(data["expires_in"]))
         pa.status = "active"
         pa.error_message = None
         db.commit()
