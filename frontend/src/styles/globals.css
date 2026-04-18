@@ -4,68 +4,1018 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 32 37% 95%;
+    --foreground: 18 14% 16%;
+    --card: 36 44% 98%;
+    --card-foreground: 18 14% 16%;
+    --popover: 36 44% 98%;
+    --popover-foreground: 18 14% 16%;
+    --primary: 18 94% 58%;
+    --primary-foreground: 30 33% 98%;
+    --secondary: 33 31% 90%;
+    --secondary-foreground: 18 14% 16%;
+    --muted: 34 24% 91%;
+    --muted-foreground: 22 8% 40%;
+    --accent: 171 32% 89%;
+    --accent-foreground: 173 38% 24%;
+    --destructive: 0 74% 52%;
+    --destructive-foreground: 30 33% 98%;
+    --border: 30 16% 82%;
+    --input: 30 16% 82%;
+    --ring: 18 94% 58%;
+    --radius: 1rem;
+    --sidebar-background: 37 43% 97%;
+    --sidebar-foreground: 18 14% 16%;
+    --sidebar-primary: 18 94% 58%;
+    --sidebar-primary-foreground: 30 33% 98%;
+    --sidebar-accent: 33 31% 90%;
+    --sidebar-accent-foreground: 18 14% 16%;
+    --sidebar-border: 30 16% 84%;
+    --sidebar-ring: 18 94% 58%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 22 12% 8%;
+    --foreground: 32 26% 92%;
+    --card: 20 12% 11%;
+    --card-foreground: 32 26% 92%;
+    --popover: 20 12% 11%;
+    --popover-foreground: 32 26% 92%;
+    --primary: 18 94% 58%;
+    --primary-foreground: 20 16% 10%;
+    --secondary: 21 10% 18%;
+    --secondary-foreground: 32 26% 92%;
+    --muted: 21 10% 18%;
+    --muted-foreground: 31 10% 63%;
+    --accent: 174 31% 20%;
+    --accent-foreground: 170 36% 88%;
+    --destructive: 0 67% 46%;
+    --destructive-foreground: 32 26% 92%;
+    --border: 24 9% 22%;
+    --input: 24 9% 22%;
+    --ring: 18 94% 58%;
+    --sidebar-background: 21 12% 10%;
+    --sidebar-foreground: 32 26% 92%;
+    --sidebar-primary: 18 94% 58%;
+    --sidebar-primary-foreground: 20 16% 10%;
+    --sidebar-accent: 21 10% 18%;
+    --sidebar-accent-foreground: 32 26% 92%;
+    --sidebar-border: 24 9% 22%;
+    --sidebar-ring: 18 94% 58%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body), sans-serif;
+    background-image:
+      radial-gradient(circle at top left, rgba(255, 127, 69, 0.10), transparent 28%),
+      radial-gradient(circle at 85% 15%, rgba(36, 182, 155, 0.12), transparent 24%),
+      linear-gradient(180deg, rgba(255, 252, 246, 0.9), rgba(249, 243, 232, 0.92));
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), sans-serif;
+  }
+  code, pre, kbd, samp {
+    font-family: var(--font-mono), monospace;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .app-panel {
+    @apply rounded-[28px] border border-border/70 bg-card/95 shadow-[0_20px_70px_rgba(40,33,24,0.08)];
+  }
+
+  .app-panel-muted {
+    @apply rounded-[24px] border border-border/60 bg-background/80;
+  }
+
+  .font-display {
+    font-family: var(--font-display), sans-serif;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground;
+  }
+
+  .metric-value {
+    @apply text-4xl tracking-tight text-foreground;
+    font-family: var(--font-display), sans-serif;
+  }
+
+  .legacy-editor-surface {
+    --bg: #141312;
+    --bg-card: #1c1a18;
+    --bg-hover: #2a2621;
+    --border: #3a342d;
+    --text: #d7d1c9;
+    --text-h: #fff8ef;
+    --text-dim: #9d9387;
+    --accent: #ff6b35;
+    --accent-hover: #ff8558;
+    --talking: #38bdf8;
+    --broll: #34d399;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --radius: 12px;
+  }
+
+  .legacy-editor-surface .btn {
+    padding: 8px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+  }
+
+  .legacy-editor-surface .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .legacy-editor-surface .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+
+  .legacy-editor-surface .btn-ghost {
+    background: transparent;
+    color: var(--text);
+  }
+
+  .legacy-editor-surface .btn-ghost:hover {
+    background: var(--bg-hover);
+  }
+
+  .legacy-editor-surface .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .legacy-editor-surface .btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .legacy-editor-surface .error {
+    color: var(--danger);
+    font-size: 13px;
+  }
+
+  .legacy-editor-surface .clip-list h3 {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .legacy-editor-surface .clip-list.empty p,
+  .legacy-editor-surface .timeline-empty {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .legacy-editor-surface .clip-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .legacy-editor-surface .clip-card {
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .clip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .legacy-editor-surface .clip-filename {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-h);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  .legacy-editor-surface .clip-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    color: white;
+    white-space: nowrap;
+  }
+
+  .legacy-editor-surface .clip-type {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  .legacy-editor-surface .clip-type.talking {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--talking);
+  }
+
+  .legacy-editor-surface .clip-type.broll {
+    background: rgba(52, 211, 153, 0.15);
+    color: var(--broll);
+  }
+
+  .legacy-editor-surface .clip-duration,
+  .legacy-editor-surface .clip-sub-count {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: 8px;
+  }
+
+  .legacy-editor-surface .clip-error {
+    font-size: 11px;
+    color: var(--danger);
+    margin-top: 6px;
+    word-break: break-word;
+  }
+
+  .legacy-editor-surface .clip-progress {
+    margin-top: 8px;
+  }
+
+  .legacy-editor-surface .clip-progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--bg-hover);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .clip-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  .legacy-editor-surface .clip-progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+  }
+
+  .legacy-editor-surface .clip-progress-detail,
+  .legacy-editor-surface .clip-progress-pct {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .legacy-editor-surface .timeline-container,
+  .legacy-editor-surface .title-suggestions,
+  .legacy-editor-surface .thumbnail-generator {
+    margin-top: 20px;
+  }
+
+  .legacy-editor-surface .timeline-header,
+  .legacy-editor-surface .title-suggestions-header,
+  .legacy-editor-surface .thumbnail-generator-header,
+  .legacy-editor-surface .metadata-field-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .legacy-editor-surface .timeline-header {
+    margin-bottom: 12px;
+  }
+
+  .legacy-editor-surface .timeline-header h3,
+  .legacy-editor-surface .title-suggestions-header h3,
+  .legacy-editor-surface .thumbnail-generator-header h3,
+  .legacy-editor-surface .video-metadata h3 {
+    font-size: 14px;
+    color: var(--text-h);
+  }
+
+  .legacy-editor-surface .timeline-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .legacy-editor-surface .timeline-with-sidebar {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .timeline-with-sidebar .timeline-editor-wrapper {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .legacy-editor-surface .track-sidebar {
+    width: 110px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+
+  .legacy-editor-surface .track-sidebar-ruler {
+    height: 42px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .legacy-editor-surface .track-sidebar-cell {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+    padding: 0 8px;
+  }
+
+  .legacy-editor-surface .track-sidebar-cell:last-child {
+    border-bottom: none;
+  }
+
+  .legacy-editor-surface .track-sidebar-btn {
+    width: 100%;
+    font-size: 11px;
+    padding: 5px 8px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-dim);
+    transition: all 0.15s;
+  }
+
+  .legacy-editor-surface .track-sidebar-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .legacy-editor-surface .track-sidebar-btn[data-track="music"] {
+    border-color: rgba(168, 85, 247, 0.4);
+    color: #d8b4fe;
+    background: rgba(168, 85, 247, 0.15);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn[data-track="title"] {
+    border-color: rgba(34, 211, 238, 0.4);
+    color: #67e8f9;
+    background: rgba(34, 211, 238, 0.15);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn[data-track="caption"] {
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.15);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn[data-track="timestamp"] {
+    border-color: rgba(251, 191, 36, 0.4);
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.15);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn[data-track="tracker"] {
+    border-color: rgba(249, 115, 22, 0.4);
+    color: #fdba74;
+    background: rgba(249, 115, 22, 0.15);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn[data-track="subscribe"] {
+    border-color: rgba(248, 113, 113, 0.4);
+    color: #fca5a5;
+    background: rgba(248, 113, 113, 0.15);
+  }
+
+  .legacy-editor-surface .track-sidebar-btn.loading {
+    position: relative;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .legacy-editor-surface .track-sidebar-btn.loading::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.08);
+    animation: sidebar-progress 2.5s ease-in-out infinite;
+  }
+
+  .legacy-editor-surface .timeline-autofit {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .legacy-editor-surface .timeline-duration {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .legacy-editor-surface .timeline-editor-wrapper {
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .timeline-editor-wrapper .timeline-editor {
+    width: 100% !important;
+  }
+
+  .legacy-editor-surface .timeline-editor-action .timeline-editor-action-left-stretch,
+  .legacy-editor-surface .timeline-editor-action .timeline-editor-action-right-stretch {
+    display: none !important;
+  }
+
+  .legacy-editor-surface .timeline-editor-action {
+    background-color: transparent !important;
+    border-radius: 4px !important;
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .tl-action-render {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px 8px;
+    overflow: hidden;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .legacy-editor-surface .tl-action-render.talking {
+    background: rgba(56, 189, 248, 0.45);
+  }
+
+  .legacy-editor-surface .tl-action-render.broll {
+    background: rgba(52, 211, 153, 0.45);
+  }
+
+  .legacy-editor-surface .tl-action-render.remix {
+    background: rgba(236, 72, 153, 0.45);
+  }
+
+  .legacy-editor-surface .tl-action-label {
+    font-size: 10px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .legacy-editor-surface .tl-action-dur {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.2;
+  }
+
+  .legacy-editor-surface .tl-action-render.music,
+  .legacy-editor-surface .tl-action-render.title,
+  .legacy-editor-surface .tl-action-render.caption,
+  .legacy-editor-surface .tl-action-render.timestamp,
+  .legacy-editor-surface .tl-action-render.tracker {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 2px 6px;
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .tl-action-render.music {
+    background: rgba(168, 85, 247, 0.25);
+    border: 1px solid rgba(168, 85, 247, 0.5);
+  }
+
+  .legacy-editor-surface .tl-action-render.music .tl-action-label {
+    color: #d8b4fe;
+    font-size: 11px;
+  }
+
+  .legacy-editor-surface .tl-action-render.title {
+    background: rgba(34, 211, 238, 0.2);
+    border: 1px solid rgba(34, 211, 238, 0.5);
+  }
+
+  .legacy-editor-surface .tl-action-render.title .tl-action-label {
+    color: #67e8f9;
+    font-size: 11px;
+  }
+
+  .legacy-editor-surface .tl-action-render.caption {
+    background: rgba(74, 222, 128, 0.2);
+    border: 1px solid rgba(74, 222, 128, 0.5);
+  }
+
+  .legacy-editor-surface .tl-action-render.caption .tl-action-label {
+    color: #86efac;
+    font-size: 11px;
+  }
+
+  .legacy-editor-surface .tl-action-render.timestamp {
+    background: rgba(251, 191, 36, 0.2);
+    border: 1px solid rgba(251, 191, 36, 0.5);
+  }
+
+  .legacy-editor-surface .tl-action-render.timestamp .tl-action-label {
+    color: #fde68a;
+    font-size: 11px;
+  }
+
+  .legacy-editor-surface .tl-action-render.tracker {
+    background: rgba(249, 115, 22, 0.2);
+    border: 1px solid rgba(249, 115, 22, 0.5);
+  }
+
+  .legacy-editor-surface .tl-action-render.tracker .tl-action-label {
+    color: #fdba74;
+    font-size: 11px;
+  }
+
+  .legacy-editor-surface .tl-action-render.title.editing,
+  .legacy-editor-surface .tl-action-render.caption.editing,
+  .legacy-editor-surface .tl-action-render.timestamp.editing {
+    padding: 0;
+  }
+
+  .legacy-editor-surface .title-edit-input,
+  .legacy-editor-surface .caption-edit-input,
+  .legacy-editor-surface .timestamp-edit-input,
+  .legacy-editor-surface .custom-title-input,
+  .legacy-editor-surface .metadata-textarea,
+  .legacy-editor-surface .metadata-select {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    color: var(--text-h);
+    outline: none;
+  }
+
+  .legacy-editor-surface .title-edit-input,
+  .legacy-editor-surface .caption-edit-input,
+  .legacy-editor-surface .timestamp-edit-input {
+    height: 100%;
+    border: none;
+    border-radius: 0;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .legacy-editor-surface .custom-title-row,
+  .legacy-editor-surface .tag-input-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .legacy-editor-surface .custom-title-input,
+  .legacy-editor-surface .metadata-select {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  .legacy-editor-surface .title-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .legacy-editor-surface .title-item {
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    color: var(--text);
+    font-size: 14px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .legacy-editor-surface .title-item:hover,
+  .legacy-editor-surface .title-item.selected {
+    border-color: var(--accent);
+  }
+
+  .legacy-editor-surface .title-item.selected {
+    background: rgba(255, 107, 53, 0.12);
+    color: var(--text-h);
+  }
+
+  .legacy-editor-surface .thumbnail-text-edit {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+
+  .legacy-editor-surface .thumbnail-text-edit label,
+  .legacy-editor-surface .metadata-field > label,
+  .legacy-editor-surface .metadata-field-header label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .legacy-editor-surface .thumbnail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .legacy-editor-surface .thumbnail-preview {
+    position: relative;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .legacy-editor-surface .thumbnail-preview:hover,
+  .legacy-editor-surface .thumbnail-preview.selected {
+    border-color: var(--accent);
+  }
+
+  .legacy-editor-surface .thumbnail-preview.selected {
+    box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.24);
+  }
+
+  .legacy-editor-surface .thumbnail-preview img {
+    width: 100%;
+    display: block;
+  }
+
+  .legacy-editor-surface .thumbnail-count {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .legacy-editor-surface .thumbnail-checkbox {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 3px 6px;
+    min-width: 20px;
+    min-height: 20px;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  }
+
+  .legacy-editor-surface .thumbnail-preview:hover .thumbnail-checkbox,
+  .legacy-editor-surface .thumbnail-checkbox.checked {
+    opacity: 1;
+  }
+
+  .legacy-editor-surface .thumbnail-checkbox.checked {
+    background: rgba(255, 107, 53, 0.8);
+    border-color: var(--accent);
+  }
+
+  .legacy-editor-surface .thumbnail-check-icon {
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+  }
+
+  .legacy-editor-surface .thumbnail-lock-icon {
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .legacy-editor-surface .video-metadata {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+
+  .legacy-editor-surface .metadata-field {
+    margin-bottom: 16px;
+  }
+
+  .legacy-editor-surface .metadata-field-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .legacy-editor-surface .metadata-field-actions .btn.active {
+    background: rgba(255, 107, 53, 0.15);
+    color: var(--accent);
+  }
+
+  .legacy-editor-surface .save-indicator {
+    font-size: 12px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    transition: opacity 0.3s;
+  }
+
+  .legacy-editor-surface .save-indicator.saving {
+    color: var(--text-dim);
+  }
+
+  .legacy-editor-surface .save-indicator.saved {
+    color: #4ade80;
+    animation: save-fade 2s ease-out forwards;
+  }
+
+  .legacy-editor-surface .prompt-editor {
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--bg-hover);
+    margin-bottom: 8px;
+    font-family: var(--font-mono), monospace;
+  }
+
+  .legacy-editor-surface .metadata-textarea {
+    padding: 10px 12px;
+    font-size: 13px;
+    resize: vertical;
+  }
+
+  .legacy-editor-surface .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .legacy-editor-surface .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: rgba(255, 107, 53, 0.16);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    border-radius: 20px;
+    color: var(--text-h);
+    font-size: 13px;
+  }
+
+  .legacy-editor-surface .tag-remove,
+  .legacy-editor-surface .asset-play-btn,
+  .legacy-editor-surface .asset-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .legacy-editor-surface .tag-remove {
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+
+  .legacy-editor-surface .tag-remove:hover {
+    color: var(--text-h);
+  }
+
+  .legacy-editor-surface .visibility-options {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .visibility-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .legacy-editor-surface .visibility-btn:last-child {
+    border-right: none;
+  }
+
+  .legacy-editor-surface .visibility-btn:hover {
+    background: var(--bg-hover);
+  }
+
+  .legacy-editor-surface .visibility-btn.active {
+    background: var(--accent);
+    color: white;
+  }
+
+  .legacy-editor-surface .video-player {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .video-player-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    overflow: hidden;
+  }
+
+  .legacy-editor-surface .video-placeholder {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    aspect-ratio: 16 / 9;
+    background: #000;
+  }
+
+  .legacy-editor-surface .asset-library {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .legacy-editor-surface .asset-library-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 0 4px 8px;
+  }
+
+  .legacy-editor-surface .asset-library-header h3 {
+    font-size: 14px;
+    color: var(--text-h);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legacy-editor-surface .collapse-arrow {
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+
+  .legacy-editor-surface .collapse-arrow.collapsed {
+    transform: rotate(-90deg);
+  }
+
+  .legacy-editor-surface .asset-count {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .legacy-editor-surface .asset-library-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .legacy-editor-surface .upload-btn {
+    width: 100%;
+    text-align: center;
+    cursor: pointer;
+    background: var(--bg-hover);
+    border: 1px dashed var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 13px;
+  }
+
+  .legacy-editor-surface .upload-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .legacy-editor-surface .asset-empty {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 8px 0;
+  }
+
+  .legacy-editor-surface .asset-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .legacy-editor-surface .asset-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    background: var(--bg-card);
+  }
+
+  .legacy-editor-surface .asset-item:hover {
+    background: var(--bg-hover);
+  }
+
+  .legacy-editor-surface .asset-play-btn {
+    color: var(--accent);
+    font-size: 12px;
+    padding: 2px;
+    flex-shrink: 0;
+  }
+
+  .legacy-editor-surface .asset-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text);
+  }
+
+  .legacy-editor-surface .asset-duration {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .legacy-editor-surface .asset-delete-btn {
+    color: var(--text-dim);
+    font-size: 16px;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+
+  .legacy-editor-surface .asset-delete-btn:hover {
+    color: var(--danger);
+  }
+}
+
+@keyframes sidebar-progress {
+  0% { width: 0%; }
+  50% { width: 90%; }
+  100% { width: 100%; }
+}
+
+@keyframes save-fade {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
 }

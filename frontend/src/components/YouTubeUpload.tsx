@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTimelineStore } from "../stores/timelineStore";
-import { api, getStoredToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -58,11 +58,20 @@ export function YouTubeUpload() {
 
   // Check auth status on mount
   useEffect(() => {
-    checkAuth();
+    void (async () => {
+      try {
+        const data = await api.get<{ authenticated: boolean; channel_name: string | null }>(
+          "/api/youtube/status"
+        );
+        setAuth({ authenticated: data.authenticated, channelName: data.channel_name });
+      } catch {
+        void 0;
+      }
+    })();
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [setAuth]);
 
   // Fetch authenticated blob URL for video preview when dialog opens
   useEffect(() => {
@@ -70,10 +79,9 @@ export function YouTubeUpload() {
 
     let mounted = true;
     let objectUrl: string | null = null;
-    const token = getStoredToken();
 
     fetch(`/api/render/${project.id}/download`, {
-      headers: token ? { "X-FlowCut-Token": token } : {},
+      credentials: "include",
     })
       .then((res) => {
         if (!res.ok) throw new Error("Preview unavailable");
@@ -95,22 +103,6 @@ export function YouTubeUpload() {
     };
   }, [showConfirm, project]);
 
-  // Reset uploading state when done or error
-  useEffect(() => {
-    if (uploadResult || uploadError) {
-      setUploading(false);
-    }
-  }, [uploadResult, uploadError]);
-
-  const checkAuth = async () => {
-    try {
-      const data = await api.get<{ authenticated: boolean; channel_name: string | null }>(
-        "/api/youtube/status"
-      );
-      setAuth({ authenticated: data.authenticated, channelName: data.channel_name });
-    } catch {}
-  };
-
   const connect = async () => {
     setConnecting(true);
     try {
@@ -131,7 +123,9 @@ export function YouTubeUpload() {
             setAuth({ authenticated: true, channelName: status.channel_name });
             setConnecting(false);
           }
-        } catch {}
+        } catch {
+          void 0;
+        }
       }, 2000);
 
       // Stop polling after 5 minutes
@@ -150,7 +144,9 @@ export function YouTubeUpload() {
   const disconnect = async () => {
     try {
       await api.post("/api/youtube/disconnect");
-    } catch {}
+    } catch {
+      void 0;
+    }
     setAuth({ authenticated: false, channelName: null });
   };
 
@@ -178,12 +174,13 @@ export function YouTubeUpload() {
   };
 
   const hasRender = renderStage === "done" || !!project?.render_path;
+  const isUploading = uploading && !uploadResult && !uploadError;
 
   const canUpload =
     auth.authenticated &&
     hasRender &&
     !!selectedTitle &&
-    !uploading &&
+    !isUploading &&
     !uploadResult;
 
   if (!selectedTitle) return null;
@@ -230,7 +227,7 @@ export function YouTubeUpload() {
                 onClick={() => setShowConfirm(true)}
                 disabled={!canUpload}
               >
-                {uploading ? "Publishing..." : "Publish to YouTube"}
+                {isUploading ? "Publishing..." : "Publish to YouTube"}
               </Button>
 
               {uploadProgress !== null && !uploadResult && (

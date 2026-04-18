@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { api, ApiError, getStoredToken } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import { useTimelineStore } from '@/stores/timelineStore'
 import type { Project, Clip, TimelineItem } from '@/types'
@@ -90,11 +90,9 @@ export function ProjectList() {
         '/api/uploads/sessions',
         { workspace_id: workspace.id, filename: file.name, total_size: file.size, media_type: file.type }
       )
-      const token = getStoredToken()
       await fetch(`/api/uploads/sessions/${session.id}`, {
         method: 'PUT',
         credentials: 'include',
-        headers: token ? { 'X-FlowCut-Token': token } : {},
         body: file,
       })
       setUploadPct(80)

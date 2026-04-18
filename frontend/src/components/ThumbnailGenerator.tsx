@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import { useTimelineStore } from "../stores/timelineStore";
 
 export function ThumbnailGenerator() {
@@ -15,17 +16,8 @@ export function ThumbnailGenerator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const prevTitleRef = useRef<string | null>(null);
   const isFirstMount = useRef(true);
-
-  // Sync thumbnail text when a new title is selected (not on restore)
   const [lastTitle, setLastTitle] = useState<string | null>(null);
-  if (selectedTitle && selectedTitle !== lastTitle) {
-    if (!isFirstMount.current) {
-      setThumbnailText(selectedTitle);
-    }
-    setLastTitle(selectedTitle);
-  }
 
   const selectedSet = new Set(selectedIndices);
 
@@ -42,21 +34,15 @@ export function ThumbnailGenerator() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/projects/${project.id}/generate-thumbnails`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), skip_indices: [] }),
+      const data = await api.post<{ thumbnail_urls: string[] }>(`/api/projects/${project.id}/generate-thumbnails`, {
+        title: title.trim(),
+        skip_indices: [],
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to generate thumbnails");
-      }
-      const data = await res.json();
       const t = Date.now();
       setThumbnailUrls(data.thumbnail_urls.map((u: string) => u + "?t=" + t));
       setSelectedIndices([]);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to generate thumbnails");
     } finally {
       setLoading(false);
     }
@@ -67,19 +53,10 @@ export function ThumbnailGenerator() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/projects/${project.id}/generate-thumbnails`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await api.post<{ thumbnail_urls: string[] }>(`/api/projects/${project.id}/generate-thumbnails`, {
           title: thumbnailText.trim(),
           skip_indices: selectedIndices,
-        }),
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to generate thumbnails");
-      }
-      const data = await res.json();
       const t = Date.now();
       setThumbnailUrls(
         data.thumbnail_urls.map((u: string, i: number) =>
@@ -88,24 +65,23 @@ export function ThumbnailGenerator() {
             : u + "?t=" + t
         )
       );
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to generate thumbnails");
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-generate when title is selected (skip on restore)
   useEffect(() => {
+    if (!selectedTitle || selectedTitle === lastTitle) return;
     if (isFirstMount.current) {
       isFirstMount.current = false;
-      prevTitleRef.current = selectedTitle;
+      setLastTitle(selectedTitle);
       return;
     }
-    if (!selectedTitle || selectedTitle === prevTitleRef.current) return;
-    prevTitleRef.current = selectedTitle;
-    doGenerate(selectedTitle);
-  }, [selectedTitle, project]);
+    setThumbnailText(selectedTitle);
+    setLastTitle(selectedTitle);
+  }, [lastTitle, selectedTitle, setThumbnailText]);
 
   if (!selectedTitle) return null;
 
@@ -116,7 +92,13 @@ export function ThumbnailGenerator() {
         <span className="thumbnail-count">{selectedIndices.length ? "1 selected" : "None selected"}</span>
         <button
           className="btn btn-primary"
-          onClick={regenerate}
+          onClick={() => {
+            if (thumbnailUrls.length > 0) {
+              regenerate();
+              return;
+            }
+            void doGenerate(thumbnailText || selectedTitle);
+          }}
           disabled={loading || !thumbnailText.trim()}
         >
           {loading ? "Generating..." : thumbnailUrls.length ? "Regenerate" : "Generate Thumbnails"}
@@ -138,10 +120,12 @@ export function ThumbnailGenerator() {
           {thumbnailUrls.map((url, i) => {
             const isSelected = selectedSet.has(i);
             return (
-              <div
+              <button
+                type="button"
                 key={i}
                 className={`thumbnail-preview ${isSelected ? "selected" : ""}`}
                 onClick={() => toggleSelect(i)}
+                aria-pressed={isSelected}
               >
                 <img src={url} alt={`Thumbnail option ${i + 1}`} />
                 <div className={`thumbnail-checkbox ${isSelected ? "checked" : ""}`}>
@@ -152,7 +136,7 @@ export function ThumbnailGenerator() {
                     </>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

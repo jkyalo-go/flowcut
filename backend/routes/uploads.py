@@ -11,9 +11,9 @@ from domain.enterprise import OnboardingState
 from domain.media import Clip, UploadSession
 from domain.projects import Project
 from domain.shared import ProcessingStatus
+from services.background_jobs import enqueue_job
 from services.enterprise import check_quota, record_usage
 from services.storage import create_upload_path, finalize_uploaded_file, temp_upload_path
-from workers.queue import processing_queue
 
 router = APIRouter()
 
@@ -127,7 +127,14 @@ async def complete_upload(
         onboarding.checklist_json = json.dumps(checklist)
         db.commit()
 
-    await processing_queue.put(clip.id)
+    enqueue_job(
+        db,
+        workspace_id=workspace.id,
+        job_type="clip_process",
+        correlation_id=str(clip.id),
+        idempotency_key=f"clip_process:{clip.id}",
+        payload={"clip_id": str(clip.id)},
+    )
     return {"ok": True, "clip_id": clip.id}
 
 

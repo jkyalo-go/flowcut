@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.orm import relationship
 
 from database import Base
@@ -17,6 +17,7 @@ class Project(Base):
     storage_prefix = Column(String, nullable=True)
     autonomy_mode = Column(Enum(AutonomyMode, **ENUM_SQL_OPTIONS), nullable=True)
     autonomy_policy = Column(String, nullable=True)
+    autonomy_confidence_threshold = Column(Float, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
     selected_title = Column(String, nullable=True)
     video_description = Column(String, nullable=True)

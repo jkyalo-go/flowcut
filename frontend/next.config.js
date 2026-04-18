@@ -1,20 +1,14 @@
 /** @type {import('next').NextConfig} */
+const apiOrigin = (process.env.NEXT_PUBLIC_API_ORIGIN ?? 'http://localhost:8000').replace(/\/$/, '')
+
 const nextConfig = {
   reactStrictMode: true,
-  typescript: {
-    // Pre-existing src/ errors are fixed in later tasks
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // ESLint config is updated; ignore build errors for now
-    ignoreDuringBuilds: true,
-  },
   async rewrites() {
     return [
-      { source: '/api/:path*', destination: 'http://localhost:8000/api/:path*' },
-      { source: '/billing/:path*', destination: 'http://localhost:8000/billing/:path*' },
-      { source: '/invitations/:path*', destination: 'http://localhost:8000/invitations/:path*' },
-      { source: '/static/:path*', destination: 'http://localhost:8000/static/:path*' },
+      { source: '/api/:path*', destination: `${apiOrigin}/api/:path*` },
+      { source: '/billing/:path*', destination: `${apiOrigin}/billing/:path*` },
+      { source: '/invitations/:path*', destination: `${apiOrigin}/invitations/:path*` },
+      { source: '/static/:path*', destination: `${apiOrigin}/static/:path*` },
     ]
   },
 }

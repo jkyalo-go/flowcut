@@ -38,7 +38,7 @@ def create_upload_path(workspace_id: str, filename: str) -> str:
     object_name = f"ws_{workspace_id}/raw/{uuid4().hex}/{safe_name}"
     if STORAGE_BACKEND == "gcs" and GCS_MEDIA_BUCKET:
         return f"gs://{GCS_MEDIA_BUCKET}/{object_name}"
-    return str(workspace_storage_dir(workspace_id) / safe_name)
+    return str(workspace_storage_dir(workspace_id) / "raw" / uuid4().hex / safe_name)
 
 
 def is_gcs_uri(path: str) -> bool:

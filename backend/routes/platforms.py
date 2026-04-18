@@ -116,6 +116,39 @@ def _platform_requirements_status(platform: str, row: PlatformConnection | None)
     }
 
 
+def _serialize_platform_surface(platform: str, capabilities: dict, row: PlatformConnection | None) -> dict:
+    requirements = _platform_requirements_status(platform, row)
+    metadata = _connection_metadata(row)
+    status = "not_connected"
+    if row:
+        status = "active"
+        if row.token_expiry:
+            now = datetime.now(timezone.utc)
+            compare_now = now if getattr(row.token_expiry, "tzinfo", None) else now.replace(tzinfo=None)
+            if row.token_expiry <= compare_now:
+                status = "expired"
+
+    return {
+        "platform": platform,
+        "label": capabilities["label"],
+        "connected": row is not None,
+        "ready": requirements["ready"],
+        "status": status,
+        "display_name": (row.account_name or row.account_id or capabilities["label"]) if row else capabilities["label"],
+        "scopes": metadata.get("scopes", []),
+        "auth_mode": capabilities["auth_mode"],
+        "supports_thumbnail": capabilities["supports_thumbnail"],
+        "supports_scheduling": capabilities["supports_scheduling"],
+        "aspect_ratios": capabilities["aspect_ratios"],
+        "duration_limit_seconds": capabilities["duration_limit_seconds"],
+        "title_limit": capabilities["title_limit"],
+        "body_limit": capabilities["body_limit"],
+        "required_fields": requirements["required_fields"],
+        "missing_fields": requirements["missing_fields"],
+        "connection": PlatformConnectionResponse.model_validate(row).model_dump() if row else None,
+    }
+
+
 @router.get("")
 def list_platforms(workspace=Depends(get_current_workspace), db: Session = Depends(get_db)):
     rows = db.query(PlatformConnection).filter(PlatformConnection.workspace_id == workspace.id).all()
@@ -123,13 +156,7 @@ def list_platforms(workspace=Depends(get_current_workspace), db: Session = Depen
     by_platform = {row.platform.value: row for row in rows}
     return {
         "platforms": [
-            {
-                "platform": platform,
-                "capabilities": capabilities,
-                "connected": platform in by_platform,
-                "requirements": _platform_requirements_status(platform, by_platform.get(platform)),
-                "connection": PlatformConnectionResponse.model_validate(by_platform[platform]).model_dump() if platform in by_platform else None,
-            }
+            _serialize_platform_surface(platform, capabilities, by_platform.get(platform))
             for platform, capabilities in PLATFORM_CAPABILITIES.items()
         ]
     }
@@ -201,6 +228,7 @@ def start_platform_auth(platform: str, workspace=Depends(get_current_workspace),
         "platform": platform,
         "mode": response.mode,
         "auth_url": response.auth_url,
+        "url": response.auth_url,
         "instructions": response.instructions,
         "required_fields": response.required_fields or [],
     }

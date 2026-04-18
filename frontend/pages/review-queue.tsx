@@ -1,310 +1,375 @@
-import { useEffect, useState, useRef } from 'react'
-import { api } from '@/lib/api'
-import { useTimelineStore } from '@/stores/timelineStore'
-import type { ReviewQueueItem, AutonomySettings } from '@/types'
-
+import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { api, surfaceApi } from '@/lib/api'
+import { useTimelineStore } from '@/stores/timelineStore'
+import type { AutonomySettings, Project, ReviewQueueSurface } from '@/types'
 
 interface AuditEntry {
   id: string
   action: string
-  clip_id: string
-  created_at: string
+  actor: string
+  target_type: string
+  target_id?: string | null
+  created_at?: string | null
+}
+
+const DEFAULT_SETTINGS: AutonomySettings = {
+  autonomy_mode: 'supervised',
+  confidence_threshold: 0.8,
+  allowed_platforms: [],
+  quiet_hours: '',
+  notification_preferences: '',
+}
+
+function confidenceVariant(score: number): 'default' | 'secondary' | 'destructive' {
+  if (score >= 0.8) return 'default'
+  if (score >= 0.6) return 'secondary'
+  return 'destructive'
 }
 
 export default function ReviewQueuePage() {
-  const [queue, setQueue] = useState<ReviewQueueItem[]>([])
-  const [settings, setSettings] = useState<AutonomySettings>({
-    autonomy_mode: 'supervised',
-    autonomy_confidence_threshold: 0.8,
-  })
-  const [audit, setAudit] = useState<AuditEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const [actionError, setActionError] = useState<string | null>(null)
-  const [corrections, setCorrections] = useState<Record<string, string>>({})
-  const [savingSettings, setSavingSettings] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-
   const mounted = useRef(true)
+  const reviewQueueDirty = useTimelineStore((state) => state.reviewQueueDirty)
+  const setReviewQueueDirty = useTimelineStore((state) => state.setReviewQueueDirty)
 
-  const reviewQueueDirty = useTimelineStore((s) => s.reviewQueueDirty)
-  const setReviewQueueDirty = useTimelineStore((s) => s.setReviewQueueDirty)
+  const [queue, setQueue] = useState<ReviewQueueSurface[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
+  const [settings, setSettings] = useState<AutonomySettings>(DEFAULT_SETTINGS)
+  const [audit, setAudit] = useState<AuditEntry[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('workspace')
+  const [corrections, setCorrections] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [loadingSettings, setLoadingSettings] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function loadQueueState() {
+    const [queueData, projectData, settingsData, auditData] = await Promise.all([
+      surfaceApi.getReviewQueue(),
+      surfaceApi.listProjects(),
+      surfaceApi.getReviewSettings(),
+      api.get<AuditEntry[]>('/api/autonomy/audit').catch(() => []),
+    ])
+    setQueue(queueData)
+    setProjects(projectData)
+    setSettings(settingsData)
+    setAudit(auditData)
+  }
 
   useEffect(() => {
     mounted.current = true
-    Promise.all([
-      api.get<AutonomySettings>('/api/autonomy/settings'),
-      api.get<ReviewQueueItem[]>('/api/autonomy/review-queue'),
-      api.get<AuditEntry[]>('/api/autonomy/audit-log').catch(() => [] as AuditEntry[]),
-    ]).then(([s, q, a]) => {
-      if (!mounted.current) return
-      setSettings(s)
-      setQueue(q)
-      setAudit(a)
-      setLoading(false)
-    }).catch(() => {
-      if (mounted.current) setLoading(false)
-    })
-    return () => {
-      mounted.current = false
-    }
+    loadQueueState()
+      .catch((err) => {
+        if (!mounted.current) return
+        setError(err instanceof Error ? err.message : 'Failed to load review queue')
+      })
+      .finally(() => {
+        if (mounted.current) setLoading(false)
+      })
+    return () => { mounted.current = false }
   }, [])
 
   useEffect(() => {
     if (!reviewQueueDirty) return
-    api.get<ReviewQueueItem[]>('/api/autonomy/review-queue')
-      .then((q) => {
+    surfaceApi.getReviewQueue()
+      .then((items) => {
         if (!mounted.current) return
-        setQueue(q)
+        setQueue(items)
         setReviewQueueDirty(false)
       })
-      .catch(() => { if (mounted.current) setReviewQueueDirty(false) })
+      .catch(() => {
+        if (mounted.current) setReviewQueueDirty(false)
+      })
   }, [reviewQueueDirty, setReviewQueueDirty])
 
-  function confidenceBadge(score: number): 'default' | 'secondary' | 'destructive' {
-    if (score >= 0.8) return 'default'
-    if (score >= 0.6) return 'secondary'
-    return 'destructive'
-  }
+  useEffect(() => {
+    if (loading) return
+    setLoadingSettings(true)
+    surfaceApi.getReviewSettings(selectedProjectId === 'workspace' ? undefined : selectedProjectId)
+      .then((data) => {
+        if (!mounted.current) return
+        setSettings(data)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted.current) setLoadingSettings(false)
+      })
+  }, [loading, selectedProjectId])
 
-  function takeAction(clipId: string, action: 'approve' | 'reject') {
-    const item = queue.find((i) => i.clip_id === clipId)
-    if (!item) return
+  async function takeAction(item: ReviewQueueSurface, action: 'approve' | 'reject') {
+    const existing = queue
+    setQueue((current) => current.filter((entry) => entry.id !== item.id))
+    setError(null)
 
-    // Optimistic removal
-    setQueue((prev) => prev.filter((i) => i.clip_id !== clipId))
-    setActionError(null)
+    const correctionText = corrections[item.clip_id]?.trim()
+    const body: {
+      action: 'approve' | 'reject'
+      reason?: string
+      corrections?: Array<{ instruction: string }>
+    } = { action }
 
-    const correctionText = corrections[clipId]?.trim()
-    const body: { corrections?: { instruction: string }[] } = {}
     if (correctionText) {
+      body.reason = correctionText
       body.corrections = [{ instruction: correctionText }]
     }
 
-    api.post(`/api/autonomy/review-queue/${clipId}/${action}`, body).catch((err) => {
-      // Restore item on error
-      setQueue((prev) => [item, ...prev])
-      setActionError(err instanceof Error ? err.message : 'Action failed')
-    })
+    try {
+      await api.post(`/api/autonomy/review-queue/${item.clip_id}`, body)
+      const auditData = await api.get<AuditEntry[]>('/api/autonomy/audit').catch(() => [])
+      setAudit(auditData)
+    } catch (err) {
+      setQueue(existing)
+      setError(err instanceof Error ? err.message : 'Failed to apply review action')
+    }
   }
 
-  function saveSettings() {
+  async function saveSettings() {
     setSavingSettings(true)
-    setSaveError(null)
-    api.post<AutonomySettings>('/api/autonomy/settings', settings)
-      .then((updated) => {
-        setSettings(updated)
-        setSavingSettings(false)
+    setError(null)
+    try {
+      const updated = await api.post<AutonomySettings>('/api/autonomy/settings', {
+        ...settings,
+        ...(selectedProjectId !== 'workspace' ? { project_id: selectedProjectId } : {}),
       })
-      .catch((err) => {
-        setSavingSettings(false)
-        setSaveError(err instanceof Error ? err.message : 'Failed to save settings')
-      })
+      setSettings(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save review settings')
+    } finally {
+      setSavingSettings(false)
+    }
   }
 
-  function testNotification() {
-    api.post('/api/autonomy/test-settings', {}).catch(() => {})
+  async function sendTestNotification() {
+    try {
+      await api.post('/api/autonomy/notifications/test', {})
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send test notification')
+    }
   }
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
+      <div className="app-panel p-8">
+        <p className="text-sm text-muted-foreground">Loading queue…</p>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Autonomy &amp; Review</h1>
+    <div className="space-y-6">
+      <section className="app-panel p-6 md:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="eyebrow">Queue</p>
+            <h2 className="mt-3 font-display text-4xl tracking-tight text-foreground">Approve, reject, and tune automation without leaving the live queue.</h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
+              The route now uses the normalized review action contract and pulls workspace or project-level settings from the same backend shape the rest of the shell consumes.
+            </p>
+          </div>
+          <Button asChild variant="outline" className="rounded-xl">
+            <Link href="/projects">Open projects</Link>
+          </Button>
+        </div>
+      </section>
 
-      {actionError && (
+      {error && (
         <Alert variant="destructive">
-          <AlertDescription>{actionError}</AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       <Tabs defaultValue="queue">
         <TabsList>
           <TabsTrigger value="queue">Queue ({queue.length})</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          <TabsTrigger value="settings">Automation</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
         </TabsList>
 
-        {/* Queue tab */}
-        <TabsContent value="queue" className="space-y-4 mt-4">
+        <TabsContent value="queue" className="mt-4 space-y-4">
           {queue.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No clips pending review.</p>
-          ) : (
-            queue.map((item) => (
-              <Card key={item.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <CardTitle className="text-base font-medium">
-                      {item.title ?? item.clip_id}
-                    </CardTitle>
-                    <Badge variant={confidenceBadge(item.edit_confidence)}>
-                      {Math.round(item.edit_confidence * 100)}% confidence
-                    </Badge>
+            <div className="app-panel p-8">
+              <p className="text-sm text-muted-foreground">Nothing is waiting for review.</p>
+            </div>
+          ) : queue.map((item) => (
+            <Card key={item.id}>
+              <CardHeader className="pb-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-base">{item.title ?? item.clip_id}</CardTitle>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Created {new Date(item.created_at).toLocaleString()}
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {item.thumbnail_urls && item.thumbnail_urls.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto">
-                      {item.thumbnail_urls.map((url, idx) => (
-                        <img
-                          key={idx}
-                          src={url}
-                          alt={`Thumbnail ${idx + 1}`}
-                          className="h-20 w-32 object-cover rounded border"
-                        />
-                      ))}
-                    </div>
+                  <Badge variant={confidenceVariant(item.edit_confidence)}>
+                    {Math.round(item.edit_confidence * 100)}% confidence
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {item.thumbnail_urls && item.thumbnail_urls.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto">
+                    {item.thumbnail_urls.map((url, index) => (
+                      <img
+                        key={`${item.id}-${index}`}
+                        src={url}
+                        alt={`Thumbnail ${index + 1}`}
+                        className="h-20 w-32 rounded-xl border border-border object-cover"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>Status: {item.status}</span>
+                  {item.project_id && (
+                    <>
+                      <span>•</span>
+                      <Link href={`/projects/${item.project_id}`} className="text-primary underline underline-offset-2">
+                        Open project
+                      </Link>
+                    </>
                   )}
+                </div>
 
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>Status: {item.status}</span>
-                    <span>·</span>
-                    <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                  </div>
+                <div className="space-y-2">
+                  <p className="eyebrow">Rejection note</p>
+                  <Input
+                    placeholder="Add correction instructions for a reject action"
+                    value={corrections[item.clip_id] ?? ''}
+                    onChange={(e) => setCorrections((current) => ({ ...current, [item.clip_id]: e.target.value }))}
+                  />
+                </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor={`correction-${item.clip_id}`} className="text-xs">
-                      Rejection note (optional)
-                    </Label>
-                    <Input
-                      id={`correction-${item.clip_id}`}
-                      placeholder="Add correction instructions…"
-                      value={corrections[item.clip_id] ?? ''}
-                      onChange={(e) =>
-                        setCorrections((prev) => ({
-                          ...prev,
-                          [item.clip_id]: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="flex gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      onClick={() => takeAction(item.clip_id, 'approve')}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => takeAction(item.clip_id, 'reject')}
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" className="rounded-xl" onClick={() => takeAction(item, 'approve')}>
+                    Approve
+                  </Button>
+                  <Button size="sm" variant="destructive" className="rounded-xl" onClick={() => takeAction(item, 'reject')}>
+                    Reject
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </TabsContent>
 
-        {/* Settings tab */}
         <TabsContent value="settings" className="mt-4">
           <Card>
-            <CardContent className="pt-6 space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="autonomy-mode">Autonomy Mode</Label>
-                <Select
-                  value={settings.autonomy_mode}
-                  onValueChange={(val) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      autonomy_mode: val as AutonomySettings['autonomy_mode'],
-                    }))
-                  }
-                >
-                  <SelectTrigger id="autonomy-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="supervised">Supervised</SelectItem>
-                    <SelectItem value="review_then_publish">Review then Publish</SelectItem>
-                    <SelectItem value="auto_publish">Auto Publish</SelectItem>
-                  </SelectContent>
-                </Select>
+            <CardHeader>
+              <CardTitle className="text-base">Automation scope</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="eyebrow">Apply settings to</p>
+                  <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="workspace">Workspace default</SelectItem>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="eyebrow">Confidence threshold</p>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={settings.confidence_threshold}
+                    onChange={(e) => setSettings((current) => ({ ...current, confidence_threshold: Number(e.target.value) }))}
+                    disabled={loadingSettings}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confidence-threshold">Confidence Threshold</Label>
-                <Input
-                  id="confidence-threshold"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={settings.autonomy_confidence_threshold}
-                  onChange={(e) =>
-                    setSettings((prev) => ({
-                      ...prev,
-                      autonomy_confidence_threshold: parseFloat(e.target.value),
-                    }))
-                  }
-                />
+                <p className="eyebrow">Automation mode</p>
+                <div className="flex flex-wrap gap-2">
+                  {(['supervised', 'review_then_publish', 'auto_publish'] as const).map((mode) => (
+                    <Button
+                      key={mode}
+                      type="button"
+                      variant={settings.autonomy_mode === mode ? 'default' : 'outline'}
+                      size="sm"
+                      className="rounded-xl"
+                      disabled={loadingSettings}
+                      onClick={() => setSettings((current) => ({ ...current, autonomy_mode: mode }))}
+                    >
+                      {mode.replace(/_/g, ' ')}
+                    </Button>
+                  ))}
+                </div>
               </div>
 
-              {saveError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{saveError}</AlertDescription>
-                </Alert>
-              )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="eyebrow">Quiet hours</p>
+                  <Input
+                    placeholder="22:00-07:00 Africa/Nairobi"
+                    value={settings.quiet_hours ?? ''}
+                    onChange={(e) => setSettings((current) => ({ ...current, quiet_hours: e.target.value }))}
+                    disabled={loadingSettings}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="eyebrow">Notifications</p>
+                  <Input
+                    placeholder="email,slack"
+                    value={settings.notification_preferences ?? ''}
+                    onChange={(e) => setSettings((current) => ({ ...current, notification_preferences: e.target.value }))}
+                    disabled={loadingSettings}
+                  />
+                </div>
+              </div>
 
-              <Separator />
-
-              <div className="flex gap-2">
-                <Button onClick={saveSettings} disabled={savingSettings}>
-                  {savingSettings ? 'Saving…' : 'Save Settings'}
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button variant="outline" onClick={sendTestNotification} className="rounded-xl">
+                  Test notification
                 </Button>
-                <Button variant="outline" onClick={testNotification}>
-                  Test Notification
+                <Button onClick={saveSettings} disabled={savingSettings || loadingSettings} className="rounded-xl">
+                  {savingSettings ? 'Saving…' : 'Save settings'}
                 </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Audit tab */}
-        <TabsContent value="audit" className="mt-4">
+        <TabsContent value="audit" className="mt-4 space-y-4">
           {audit.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No audit entries found.</p>
-          ) : (
-            <div className="space-y-2">
-              {audit.map((entry) => (
-                <Card key={entry.id}>
-                  <CardContent className="py-3 flex items-center justify-between text-sm">
-                    <div className="space-x-2">
-                      <Badge variant="secondary">{entry.action}</Badge>
-                      <span className="text-muted-foreground">Clip: {entry.clip_id}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(entry.created_at).toLocaleString()}
-                    </span>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="app-panel p-8">
+              <p className="text-sm text-muted-foreground">No audit entries yet.</p>
             </div>
-          )}
+          ) : audit.slice(0, 20).map((entry) => (
+            <div key={entry.id} className="app-panel p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{entry.action}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {entry.actor} • {entry.target_type}{entry.target_id ? ` #${entry.target_id}` : ''}
+                  </p>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {entry.created_at ? new Date(entry.created_at).toLocaleString() : 'Pending'}
+                </span>
+              </div>
+            </div>
+          ))}
         </TabsContent>
       </Tabs>
     </div>

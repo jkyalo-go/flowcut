@@ -29,10 +29,30 @@ class SessionResponse(BaseModel):
     workspace: WorkspaceResponse
 
 
+class SwitchWorkspaceRequest(BaseModel):
+    workspace_id: str
+
+
 class DevLoginRequest(BaseModel):
     email: str
     name: str | None = None
     workspace_name: str | None = None
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str | None = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class InvitationCreateRequest(BaseModel):
+    email: str
+    role: str = "editor"
 
 
 class WorkspaceCreate(BaseModel):

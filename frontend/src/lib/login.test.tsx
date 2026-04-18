@@ -13,7 +13,6 @@ vi.mock('next/router', () => ({
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    localStorage.clear()
   })
 
   it('shows Sign in with Google button', async () => {
@@ -22,18 +21,18 @@ describe('LoginPage', () => {
     expect(screen.getByRole('button', { name: /google/i })).toBeInTheDocument()
   })
 
-  it('dev login stores token and navigates', async () => {
+  it('dev login navigates without persisting a browser token', async () => {
     // Expose dev-only button in test environment
-    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('NEXT_PUBLIC_ENABLE_DEV_LOGIN', 'true')
     vi.spyOn(apiModule.api, 'post').mockResolvedValue({
       token: 'test-token-123',
       user: { id: '1', email: 'demo@flowcut.local', name: 'Demo', user_type: 'admin' },
-      workspace: { id: 'ws1', name: 'Default', slug: 'default', plan_tier: 'starter', lifecycle_status: 'trial' },
+      workspace: { id: 'ws1', name: 'Default', slug: 'default', plan_tier: 'starter', lifecycle_status: 'trial', autonomy_mode: 'supervised' },
     })
     const { default: LoginPage } = await import('@/pages/login')
     render(<LoginPage />)
     const devBtn = screen.getByRole('button', { name: /dev login/i })
     fireEvent.click(devBtn)
-    await waitFor(() => expect(localStorage.getItem('flowcut_token')).toBe('test-token-123'))
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'))
   })
 })

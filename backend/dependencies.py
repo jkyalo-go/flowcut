@@ -1,10 +1,13 @@
+import os
 from datetime import datetime
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
 from domain.identity import AdminUser, AuthSession, Membership, User, Workspace
+
+SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "flowcut_session")
 
 
 def _extract_bearer_token(authorization: str | None) -> str | None:
@@ -19,9 +22,10 @@ def _extract_bearer_token(authorization: str | None) -> str | None:
 def get_current_session(
     authorization: str | None = Header(default=None),
     x_flowcut_token: str | None = Header(default=None),
+    session_cookie: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
     db: Session = Depends(get_db),
 ) -> AuthSession:
-    token = x_flowcut_token or _extract_bearer_token(authorization)
+    token = x_flowcut_token or session_cookie or _extract_bearer_token(authorization)
     if not token:
         raise HTTPException(401, "Missing authorization token")
 

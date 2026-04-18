@@ -6,7 +6,7 @@ import { FPS } from "../lib/remotion";
 const RemotionRoot: React.FC = () => (
   <Composition
     id="Timeline"
-    component={TimelineComposition}
+    component={TimelineComposition as unknown as React.ComponentType<Record<string, unknown>>}
     fps={FPS}
     width={1920}
     height={1080}

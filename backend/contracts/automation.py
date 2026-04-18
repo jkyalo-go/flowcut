@@ -42,6 +42,7 @@ class AutonomySettingsUpdate(BaseModel):
     allowed_platforms: list[str] = Field(default_factory=list)
     quiet_hours: str | None = None
     notification_preferences: str | None = None
+    project_id: str | None = None
 
 
 class ReviewActionRequest(BaseModel):

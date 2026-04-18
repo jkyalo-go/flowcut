@@ -60,10 +60,16 @@ def update_locks(profile_id: str, payload: dict, db: Session = Depends(get_db),
                  workspace=Depends(get_current_workspace)):
     p = _get_or_404(profile_id, workspace.id, db)
     locks = json.loads(p.dimension_locks or "{}")
-    locks.update(payload.get("dimension_locks", {}))
+    incoming = payload.get("dimension_locks")
+    if incoming is None:
+        incoming = payload.get("locks", {})
+    if not isinstance(incoming, dict):
+        raise HTTPException(400, "dimension_locks must be an object")
+    locks.update(incoming)
     p.dimension_locks = json.dumps(locks)
     db.commit()
-    return {"dimension_locks": locks}
+    db.refresh(p)
+    return _serialize(p)
 
 
 @router.post("/{profile_id}/rollback")

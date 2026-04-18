@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { RefObject } from "react";
 import type { PlayerRef } from "@remotion/player";
-import type { Project, Clip, TimelineItem, Asset, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
+import type { EntityId, Project, Clip, TimelineItem, Asset, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
 
 interface TimelineStore {
   project: Project | null;
@@ -14,8 +14,8 @@ interface TimelineStore {
   setProject: (p: Project | null) => void;
   setClips: (clips: Clip[]) => void;
   addClip: (clip: Clip) => void;
-  updateClipStatus: (clipId: number, status: Clip["status"], progress?: number | null, detail?: string | null) => void;
-  updateClip: (clip: Partial<Clip> & { id: number }) => void;
+  updateClipStatus: (clipId: EntityId, status: Clip["status"], progress?: number | null, detail?: string | null) => void;
+  updateClip: (clip: Partial<Clip> & { id: EntityId }) => void;
   setTimelineItems: (items: TimelineItem[]) => void;
   setRenderProgress: (pct: number | null, stage?: string | null) => void;
   setPlayerRef: (ref: RefObject<PlayerRef | null> | null) => void;
@@ -58,21 +58,21 @@ interface TimelineStore {
   titleLoading: boolean;
   setTitleItems: (items: TitleItem[]) => void;
   setTitleLoading: (loading: boolean) => void;
-  updateTitleItem: (id: number, updates: Partial<TitleItem>) => void;
+  updateTitleItem: (id: EntityId, updates: Partial<TitleItem>) => void;
 
   // Caption overlays
   captionItems: CaptionItem[];
   captionLoading: boolean;
   setCaptionItems: (items: CaptionItem[]) => void;
   setCaptionLoading: (loading: boolean) => void;
-  updateCaptionItem: (id: number, updates: Partial<CaptionItem>) => void;
+  updateCaptionItem: (id: EntityId, updates: Partial<CaptionItem>) => void;
 
   // Timestamp overlays
   timestampItems: TimestampItem[];
   timestampLoading: boolean;
   setTimestampItems: (items: TimestampItem[]) => void;
   setTimestampLoading: (loading: boolean) => void;
-  updateTimestampItem: (id: number, updates: Partial<TimestampItem>) => void;
+  updateTimestampItem: (id: EntityId, updates: Partial<TimestampItem>) => void;
 
   // Tracker overlays
   trackerItems: TrackerItem[];

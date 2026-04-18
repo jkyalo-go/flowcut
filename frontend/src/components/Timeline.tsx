@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Timeline as TimelineEditor, type TimelineState } from "@xzdarcy/react-timeline-editor";
 import "@xzdarcy/react-timeline-editor/dist/react-timeline-editor.css";
+import { api } from "@/lib/api";
 import { useTimelineStore } from "../stores/timelineStore";
 import { toEditorData, timelineSecondsToFrame, type VideoAction, type MusicAction, type TitleAction, type CaptionAction, type TimestampAction } from "../lib/remotion";
+import type { EntityId } from "../types";
 
 const effects = {
   video: {
@@ -57,11 +59,11 @@ export function Timeline() {
   const [scaleWidth, setScaleWidth] = useState(DEFAULT_SCALE_WIDTH);
   const [autoFit, setAutoFit] = useState(true);
 
-  const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
+  const [editingTitleId, setEditingTitleId] = useState<EntityId | null>(null);
   const [editingTitleText, setEditingTitleText] = useState("");
-  const [editingCaptionId, setEditingCaptionId] = useState<number | null>(null);
+  const [editingCaptionId, setEditingCaptionId] = useState<EntityId | null>(null);
   const [editingCaptionText, setEditingCaptionText] = useState("");
-  const [editingTimestampId, setEditingTimestampId] = useState<number | null>(null);
+  const [editingTimestampId, setEditingTimestampId] = useState<EntityId | null>(null);
   const [editingTimestampText, setEditingTimestampText] = useState("");
 
   const { rows, totalDuration } = useMemo(
@@ -146,12 +148,9 @@ export function Timeline() {
     if (!project) return;
     setMusicLoading(true);
     try {
-      const res = await fetch(`/api/music/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setMusicItems(data.items);
-        setVolumeEnvelope(data.volume_envelope);
-      }
+      const data = await api.post<{ items: typeof musicItems; volume_envelope: ReturnType<typeof useTimelineStore.getState>["volumeEnvelope"] }>(`/api/music/${project.id}/auto`);
+      setMusicItems(data.items);
+      setVolumeEnvelope(data.volume_envelope);
     } finally {
       setMusicLoading(false);
     }
@@ -159,7 +158,7 @@ export function Timeline() {
 
   const handleClearMusic = async () => {
     if (!project) return;
-    await fetch(`/api/music/${project.id}`, { method: "DELETE" });
+    await api.delete(`/api/music/${project.id}`);
     setMusicItems([]);
     setVolumeEnvelope([]);
   };
@@ -168,11 +167,8 @@ export function Timeline() {
     if (!project) return;
     setTitleLoading(true);
     try {
-      const res = await fetch(`/api/titles/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setTitleItems(data.items);
-      }
+      const data = await api.post<{ items: typeof titleItems }>(`/api/titles/${project.id}/auto`);
+      setTitleItems(data.items);
     } finally {
       setTitleLoading(false);
     }
@@ -180,30 +176,23 @@ export function Timeline() {
 
   const handleClearTitles = async () => {
     if (!project) return;
-    await fetch(`/api/titles/${project.id}`, { method: "DELETE" });
+    await api.delete(`/api/titles/${project.id}`);
     setTitleItems([]);
   };
 
-  const handleSaveTitle = async (titleId: number, text: string) => {
+  const handleSaveTitle = async (titleId: EntityId, text: string) => {
     if (!project) return;
     updateTitleItem(titleId, { text });
     setEditingTitleId(null);
-    await fetch(`/api/titles/${project.id}/items/${titleId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
+    await api.put(`/api/titles/${project.id}/items/${titleId}`, { text });
   };
 
   const handleAddCaptions = async () => {
     if (!project) return;
     setCaptionLoading(true);
     try {
-      const res = await fetch(`/api/captions/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setCaptionItems(data.items);
-      }
+      const data = await api.post<{ items: typeof captionItems }>(`/api/captions/${project.id}/auto`);
+      setCaptionItems(data.items);
     } finally {
       setCaptionLoading(false);
     }
@@ -211,30 +200,23 @@ export function Timeline() {
 
   const handleClearCaptions = async () => {
     if (!project) return;
-    await fetch(`/api/captions/${project.id}`, { method: "DELETE" });
+    await api.delete(`/api/captions/${project.id}`);
     setCaptionItems([]);
   };
 
-  const handleSaveCaption = async (captionId: number, text: string) => {
+  const handleSaveCaption = async (captionId: EntityId, text: string) => {
     if (!project) return;
     updateCaptionItem(captionId, { text });
     setEditingCaptionId(null);
-    await fetch(`/api/captions/${project.id}/items/${captionId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
+    await api.put(`/api/captions/${project.id}/items/${captionId}`, { text });
   };
 
   const handleAddTimestamps = async () => {
     if (!project) return;
     setTimestampLoading(true);
     try {
-      const res = await fetch(`/api/timestamps/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setTimestampItems(data.items);
-      }
+      const data = await api.post<{ items: typeof timestampItems }>(`/api/timestamps/${project.id}/auto`);
+      setTimestampItems(data.items);
     } finally {
       setTimestampLoading(false);
     }
@@ -242,30 +224,23 @@ export function Timeline() {
 
   const handleClearTimestamps = async () => {
     if (!project) return;
-    await fetch(`/api/timestamps/${project.id}`, { method: "DELETE" });
+    await api.delete(`/api/timestamps/${project.id}`);
     setTimestampItems([]);
   };
 
-  const handleSaveTimestamp = async (timestampId: number, text: string) => {
+  const handleSaveTimestamp = async (timestampId: EntityId, text: string) => {
     if (!project) return;
     updateTimestampItem(timestampId, { text });
     setEditingTimestampId(null);
-    await fetch(`/api/timestamps/${project.id}/items/${timestampId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
+    await api.put(`/api/timestamps/${project.id}/items/${timestampId}`, { text });
   };
 
   const handleAddTrackers = async () => {
     if (!project) return;
     setTrackerLoading(true);
     try {
-      const res = await fetch(`/api/trackers/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setTrackerItems(data.items);
-      }
+      const data = await api.post<{ items: typeof trackerItems }>(`/api/trackers/${project.id}/auto`);
+      setTrackerItems(data.items);
     } finally {
       setTrackerLoading(false);
     }
@@ -273,7 +248,7 @@ export function Timeline() {
 
   const handleClearTrackers = async () => {
     if (!project) return;
-    await fetch(`/api/trackers/${project.id}`, { method: "DELETE" });
+    await api.delete(`/api/trackers/${project.id}`);
     setTrackerItems([]);
   };
 
@@ -281,11 +256,8 @@ export function Timeline() {
     if (!project) return;
     setSubscribeLoading(true);
     try {
-      const res = await fetch(`/api/subscribes/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setSubscribeItems(data.items);
-      }
+      const data = await api.post<{ items: typeof subscribeItems }>(`/api/subscribes/${project.id}/auto`);
+      setSubscribeItems(data.items);
     } finally {
       setSubscribeLoading(false);
     }
@@ -293,7 +265,7 @@ export function Timeline() {
 
   const handleClearSubscribe = async () => {
     if (!project) return;
-    await fetch(`/api/subscribes/${project.id}`, { method: "DELETE" });
+    await api.delete(`/api/subscribes/${project.id}`);
     setSubscribeItems([]);
   };
 
@@ -301,14 +273,10 @@ export function Timeline() {
     if (!project) return;
     setRemixLoading(true);
     try {
-      const res = await fetch(`/api/remixes/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setTimelineItems(data.items);
-      } else {
-        const err = await res.json().catch(() => null);
-        alert(err?.detail || "Failed to generate remixes");
-      }
+      const data = await api.post<{ items: typeof timelineItems }>(`/api/remixes/${project.id}/auto`);
+      setTimelineItems(data.items);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to generate remixes");
     } finally {
       setRemixLoading(false);
     }
@@ -316,16 +284,11 @@ export function Timeline() {
 
   const handleClearRemixes = async () => {
     if (!project) return;
-    const res = await fetch(`/api/remixes/${project.id}`, { method: "DELETE" });
-    if (res.ok) {
-      const data = await res.json();
-      setTimelineItems(data.items);
-    }
+    const data = await api.delete<{ items: typeof timelineItems }>(`/api/remixes/${project.id}`);
+    setTimelineItems(data.items);
   };
 
-  if (!project) return null;
-
-  const trackLabels = useMemo(() => {
+  const trackLabels = (() => {
     const labels: { id: string; track: string; label: string; hasItems: boolean; loading: boolean; onAdd: () => void; onClear: () => void }[] = [];
     for (const row of rows) {
       if (row.id === "video-track") {
@@ -346,7 +309,9 @@ export function Timeline() {
       }
     }
     return labels;
-  }, [rows, timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems, remixLoading, musicLoading, titleLoading, captionLoading, timestampLoading, trackerLoading, subscribeLoading]);
+  })();
+
+  if (!project) return null;
 
   return (
     <div className="timeline-container">
@@ -506,17 +471,18 @@ export function Timeline() {
                 );
               }
               if (action.effectId === "tracker") {
+                const trackerAction = action as { start: number; end: number };
                 return (
                   <div className="tl-action-render tracker" title="Tracker overlay">
                     <span className="tl-action-label">Tracker</span>
                     <span className="tl-action-dur">
-                      {(action.end - action.start).toFixed(1)}s
+                      {(trackerAction.end - trackerAction.start).toFixed(1)}s
                     </span>
                   </div>
                 );
               }
               if (action.effectId === "music") {
-                const m = action as MusicAction;
+                const m = action as unknown as MusicAction;
                 return (
                   <div className="tl-action-render music" title={m.assetName}>
                     <span className="tl-action-label">{m.assetName}</span>
@@ -526,7 +492,7 @@ export function Timeline() {
                   </div>
                 );
               }
-              const a = action as VideoAction;
+              const a = action as unknown as VideoAction;
               const clipClass = a.clipType === "broll" ? "broll" : a.clipType === "remix" ? "remix" : "talking";
               return (
                 <div

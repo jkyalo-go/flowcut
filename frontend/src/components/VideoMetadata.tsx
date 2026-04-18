@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { api } from "@/lib/api";
 import { useTimelineStore } from "../stores/timelineStore";
 
 const YOUTUBE_CATEGORIES = [
@@ -40,9 +41,6 @@ export function VideoMetadata() {
   const descSystemPrompt = useTimelineStore((s) => s.descSystemPrompt);
   const setDescSystemPrompt = useTimelineStore((s) => s.setDescSystemPrompt);
 
-  const prevTitleRef = useRef<string | null>(null);
-  const isFirstMount = useRef(true);
-
   const title = selectedTitle || "";
 
   const generateDescription = async () => {
@@ -50,19 +48,13 @@ export function VideoMetadata() {
     setLoadingDesc(true);
     setError("");
     try {
-      const res = await fetch(`/api/projects/${project.id}/generate-description`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, system_prompt: descSystemPrompt }),
+      const data = await api.post<{ description: string }>(`/api/projects/${project.id}/generate-description`, {
+        title,
+        system_prompt: descSystemPrompt,
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to generate description");
-      }
-      const data = await res.json();
       setDescription(data.description);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to generate description");
     } finally {
       setLoadingDesc(false);
     }
@@ -73,19 +65,10 @@ export function VideoMetadata() {
     setLoadingTags(true);
     setError("");
     try {
-      const res = await fetch(`/api/projects/${project.id}/generate-tags`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to generate tags");
-      }
-      const data = await res.json();
+      const data = await api.post<{ tags: string[] }>(`/api/projects/${project.id}/generate-tags`, { title });
       setTags(data.tags);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to generate tags");
     } finally {
       setLoadingTags(false);
     }
@@ -102,19 +85,6 @@ export function VideoMetadata() {
   const removeTag = (idx: number) => {
     setTags(tags.filter((_, i) => i !== idx));
   };
-
-  // Auto-generate description + tags when title is selected (skip on restore)
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      prevTitleRef.current = selectedTitle;
-      return;
-    }
-    if (!selectedTitle || !project || selectedTitle === prevTitleRef.current) return;
-    prevTitleRef.current = selectedTitle;
-    generateDescription();
-    generateTags();
-  }, [selectedTitle, project]);
 
   if (!selectedTitle) return null;
 

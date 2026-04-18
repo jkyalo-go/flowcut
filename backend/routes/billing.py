@@ -15,7 +15,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 @router.post("/checkout")
 def checkout(payload: dict, db: Session = Depends(get_db), workspace=Depends(get_current_workspace)):
-    plan_tier = payload.get("plan_tier", "creator")
+    plan_tier = payload.get("plan_tier") or payload.get("plan_key") or "creator"
     try:
         stripe_session = create_checkout_session(
             workspace_id=str(workspace.id),
@@ -25,7 +25,7 @@ def checkout(payload: dict, db: Session = Depends(get_db), workspace=Depends(get
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return {"checkout_url": stripe_session.url, "session_id": stripe_session.id}
+    return {"checkout_url": stripe_session.url, "url": stripe_session.url, "session_id": stripe_session.id}
 
 
 @router.post("/webhook")

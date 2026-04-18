@@ -34,6 +34,7 @@ class User(Base):
     oauth_provider = Column(String, nullable=True)   # 'google', 'discord', 'twitch'
     oauth_id = Column(String, nullable=True)         # provider's user ID
     avatar_url = Column(String, nullable=True)
+    password_hash = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     __mapper_args__ = {

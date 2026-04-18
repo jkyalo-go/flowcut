@@ -1,6 +1,8 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
+from contracts.platforms import GapSlotResponse
 from database import get_db
 from domain.platforms import CalendarSlot
 from dependencies import get_current_workspace
@@ -27,4 +29,12 @@ def get_gaps(
     )
     slot_dicts = [{"scheduled_at": s.scheduled_at} for s in slots]
     gaps = find_gaps(platform=platform, scheduled_slots=slot_dicts, window_days=window_days)
-    return {"gaps": gaps}
+    normalized = [
+        GapSlotResponse(
+            platform=str(gap["platform"]),
+            suggested_at=str(gap["datetime"]),
+            score=float(gap["audience_score"]),
+        ).model_dump()
+        for gap in gaps
+    ]
+    return {"gaps": normalized}

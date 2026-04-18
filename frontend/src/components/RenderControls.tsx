@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTimelineStore } from "../stores/timelineStore";
-import { api, getStoredToken } from "@/lib/api";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,7 +15,7 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 export function RenderControls() {
-  const { project, timelineItems, renderProgress, renderStage, setRenderProgress, setProject } =
+  const { project, timelineItems, renderProgress, renderStage, setRenderProgress } =
     useTimelineStore();
   const [renderError, setRenderError] = useState<string | null>(null);
 
@@ -38,10 +38,9 @@ export function RenderControls() {
 
   const handleDownload = async () => {
     if (!project) return;
-    const token = getStoredToken();
     try {
       const res = await fetch(`/api/render/${project.id}/download`, {
-        headers: token ? { "X-FlowCut-Token": token } : {},
+        credentials: "include",
       });
       if (!res.ok) throw new Error(`Download failed: HTTP ${res.status}`);
       const blob = await res.blob();
@@ -56,19 +55,7 @@ export function RenderControls() {
     }
   };
 
-  const handleReveal = async () => {
-    if (!project) return;
-    try {
-      await api.post(`/api/render/${project.id}/reveal`);
-    } catch (e) {
-      setRenderError(e instanceof Error ? e.message : "Could not reveal file in Finder");
-    }
-  };
-
   const handleDismiss = () => {
-    // Marks the project as having a render so hasRender stays true after dismissal.
-    // The real server-side render_path is fetched on next project open.
-    setProject({ ...project, render_path: `project_${project.id}_render.mp4` });
     setRenderProgress(null);
     setRenderError(null);
   };
@@ -116,9 +103,6 @@ export function RenderControls() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={handleDownload}>
                 Download
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleReveal}>
-                Open in Finder
               </Button>
               <Button variant="default" size="sm" onClick={startRender}>
                 Re-export

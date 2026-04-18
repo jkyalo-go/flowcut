@@ -9,7 +9,9 @@ from sqlalchemy.orm import Session
 
 from domain.automation import AuditLog, Notification
 from domain.enterprise import BackgroundJob, ComplianceExport, UsageLedger
+from domain.media import Clip
 from domain.platforms import CalendarSlot
+from domain.projects import Project
 from domain.shared import ComplianceExportStatus, JobStatus
 from services.audit import create_notification, record_audit
 from services.platform_integrations import execute_slot, sync_slot_status
@@ -166,6 +168,40 @@ def _run_publish_sync(db: Session, job: BackgroundJob, payload: dict) -> None:
     sync_slot_status(db, slot)
 
 
+def _run_clip_process(db: Session, job: BackgroundJob, payload: dict) -> None:
+    clip = db.query(Clip).filter(Clip.id == payload["clip_id"]).first()
+    if not clip:
+        raise RuntimeError("Clip not found")
+    from services.pipeline import process_clip
+    import asyncio
+
+    asyncio.run(process_clip(str(clip.id)))
+
+
+def _run_project_render(db: Session, job: BackgroundJob, payload: dict) -> None:
+    project = db.query(Project).filter(Project.id == payload["project_id"]).first()
+    if not project:
+        raise RuntimeError("Project not found")
+    from config import GCS_MEDIA_BUCKET, PROCESSED_DIR, STORAGE_BACKEND
+    from pathlib import Path
+    from services.renderer import render_timeline
+    from services.storage import finalize_uploaded_file
+    import asyncio
+
+    project_id = str(project.id)
+    output_path = str(PROCESSED_DIR / f"project_{project_id}_render.mp4")
+    asyncio.run(render_timeline(project_id, output_path))
+
+    persisted_render_path = output_path
+    if STORAGE_BACKEND == "gcs" and GCS_MEDIA_BUCKET:
+        persisted_render_path = finalize_uploaded_file(
+            Path(output_path),
+            f"gs://{GCS_MEDIA_BUCKET}/ws_{project.workspace_id}/renders/project_{project_id}_render.mp4",
+        )
+    project.render_path = persisted_render_path
+    db.commit()
+
+
 def _run_performance_feedback_sweep(_db: Session, _job: BackgroundJob, _payload: dict) -> None:
     from services.sie.performance import run_performance_feedback_sweep
     run_performance_feedback_sweep()
@@ -173,8 +209,10 @@ def _run_performance_feedback_sweep(_db: Session, _job: BackgroundJob, _payload:
 
 JOB_HANDLERS = {
     "compliance_export": _run_compliance_export,
+    "clip_process": _run_clip_process,
     "publish_execute": _run_publish_execute,
     "publish_sync": _run_publish_sync,
+    "project_render": _run_project_render,
     "performance_feedback_sweep": _run_performance_feedback_sweep,
 }
 

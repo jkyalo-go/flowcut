@@ -93,7 +93,7 @@ def auto_generate_timestamps(
         .all()
     )
 
-    tz_name = _get_setting(db, "timezone")
+    tz_name = _get_setting(db, "timezone", workspace.id)
     tz = ZoneInfo(tz_name)
     transcript_text, total_duration = _build_datetime_transcript(timeline_items, tz)
     if not transcript_text or total_duration <= 0:

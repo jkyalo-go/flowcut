@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { api } from "@/lib/api";
 import { useTimelineStore } from "../stores/timelineStore";
 
 export function useAutoSaveMetadata() {
@@ -31,10 +32,7 @@ export function useAutoSaveMetadata() {
 
     timerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/projects/${project.id}/metadata`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        await api.put(`/api/projects/${project.id}/metadata`, {
             selected_title: selectedTitle,
             video_description: videoDescription,
             video_tags: JSON.stringify(videoTags),
@@ -45,12 +43,9 @@ export function useAutoSaveMetadata() {
             thumbnail_urls: JSON.stringify(thumbnailUrls),
             locked_thumbnail_indices: JSON.stringify(selectedThumbnailIndices),
             thumbnail_text: thumbnailText,
-          }),
         });
-        if (res.ok) {
-          setSaveStatus("saved");
-          fadeTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
-        }
+        setSaveStatus("saved");
+        fadeTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
       } catch {
         setSaveStatus("idle");
       }
@@ -59,5 +54,5 @@ export function useAutoSaveMetadata() {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [project, selectedTitle, videoDescription, videoTags, videoCategory, videoVisibility, selectedThumbnailIndices, descSystemPrompt, thumbnailUrls, thumbnailText]);
+  }, [descSystemPrompt, project, selectedThumbnailIndices, selectedTitle, setSaveStatus, thumbnailText, thumbnailUrls, videoCategory, videoDescription, videoTags, videoVisibility]);
 }

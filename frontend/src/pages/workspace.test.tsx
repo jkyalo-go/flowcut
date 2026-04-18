@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react'
 import WorkspacePage from '@/pages/workspace'
 import { vi, beforeEach } from 'vitest'
 import * as apiModule from '@/lib/api'
-import * as authStore from '@/stores/authStore'
 
 vi.mock('next/router', () => ({
   useRouter: () => ({ pathname: '/workspace', replace: vi.fn() }),
@@ -25,8 +24,8 @@ describe('WorkspacePage', () => {
     expect(screen.getByText('owner')).toBeInTheDocument()
   })
 
-  it('renders invite form with email input', () => {
+  it('renders invite form with email input', async () => {
     render(<WorkspacePage />)
-    expect(screen.getByPlaceholderText(/colleague/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByPlaceholderText(/colleague/i)).toBeInTheDocument())
   })
 })

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "@/lib/api";
 import { useTimelineStore } from "../stores/timelineStore";
 
 export function TitleSuggestions() {
@@ -19,17 +20,10 @@ export function TitleSuggestions() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/projects/${project.id}/generate-titles`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to generate titles");
-      }
-      const data = await res.json();
+      const data = await api.post<{ titles: string[] }>(`/api/projects/${project.id}/generate-titles`);
       setTitles(data.titles);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to generate titles");
     } finally {
       setLoading(false);
     }
@@ -74,13 +68,15 @@ export function TitleSuggestions() {
       {titles.length > 0 && (
         <div className="title-list">
           {titles.map((title, i) => (
-            <div
+            <button
+              type="button"
               key={i}
               className={`title-item ${selectedTitle === title ? "selected" : ""}`}
               onClick={() => setSelectedTitle(title)}
+              aria-pressed={selectedTitle === title}
             >
               {title}
-            </div>
+            </button>
           ))}
         </div>
       )}

@@ -1,27 +1,28 @@
 import { useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import { useTimelineStore } from "../stores/timelineStore";
-import type { Asset } from "../types";
+import type { Asset, EntityId } from "../types";
 
 export function AssetLibrary() {
   const assets = useTimelineStore((s) => s.assets);
   const setAssets = useTimelineStore((s) => s.setAssets);
   const [collapsed, setCollapsed] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [playingId, setPlayingId] = useState<number | null>(null);
+  const [playingId, setPlayingId] = useState<EntityId | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    fetchAssets();
-  }, []);
-
   const fetchAssets = async () => {
-    const res = await fetch("/api/assets?type=music");
-    if (res.ok) {
-      const data: Asset[] = await res.json();
-      setAssets(data);
-    }
+    const data = await api.get<Asset[]>("/api/assets?asset_type=music");
+    setAssets(data);
   };
+
+  useEffect(() => {
+    void (async () => {
+      const data = await api.get<Asset[]>("/api/assets?asset_type=music");
+      setAssets(data);
+    })();
+  }, [setAssets]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -30,18 +31,15 @@ export function AssetLibrary() {
     for (const file of Array.from(files)) {
       const form = new FormData();
       form.append("file", file);
-      await fetch("/api/assets/upload?asset_type=music", {
-        method: "POST",
-        body: form,
-      });
+      await api.postForm("/api/assets/upload?asset_type=music", form);
     }
     await fetchAssets();
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleDelete = async (id: number) => {
-    await fetch(`/api/assets/${id}`, { method: "DELETE" });
+  const handleDelete = async (id: EntityId) => {
+    await api.delete(`/api/assets/${id}`);
     if (playingId === id) {
       audioRef.current?.pause();
       setPlayingId(null);

@@ -13,7 +13,11 @@ const DIMENSIONS = ['pacing', 'cut_density', 'music_energy', 'text_density', 'tr
 
 function parseLocks(p: StyleProfile): Record<string, boolean> {
   if (typeof p.dimension_locks === 'string') {
-    try { return JSON.parse(p.dimension_locks) } catch {}
+    try {
+      return JSON.parse(p.dimension_locks)
+    } catch {
+      return {}
+    }
   } else if (p.dimension_locks && typeof p.dimension_locks === 'object') {
     return p.dimension_locks
   }
@@ -22,7 +26,11 @@ function parseLocks(p: StyleProfile): Record<string, boolean> {
 
 function parseScores(p: StyleProfile): Record<string, number> {
   if (typeof p.confidence_scores === 'string') {
-    try { return JSON.parse(p.confidence_scores) } catch {}
+    try {
+      return JSON.parse(p.confidence_scores)
+    } catch {
+      return {}
+    }
   } else if (p.confidence_scores && typeof p.confidence_scores === 'object') {
     return p.confidence_scores
   }
@@ -45,13 +53,13 @@ export default function StyleProfilesPage() {
   useEffect(() => {
     let mounted = true
     Promise.all([
-      api.get<string[]>('/api/style-profiles/genres'),
-      api.get<StyleProfile[]>('/api/style-profiles'),
+      api.get<{ genres: string[] } | string[]>('/api/style-profiles/genres'),
+      api.get<{ profiles: StyleProfile[] } | StyleProfile[]>('/api/style-profiles'),
     ])
       .then(([g, p]) => {
         if (!mounted) return
-        setGenres(g)
-        setProfiles(p)
+        setGenres(Array.isArray(g) ? g : (g as { genres: string[] }).genres ?? [])
+        setProfiles(Array.isArray(p) ? p : (p as { profiles: StyleProfile[] }).profiles ?? [])
       })
       .catch((err: unknown) => {
         if (!mounted) return
@@ -169,13 +177,13 @@ export default function StyleProfilesPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-3">
           {profiles.map(profile => (
-            <Card
-              key={profile.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => openProfile(profile.id)}
-            >
+            <Card key={profile.id} className="hover:shadow-md transition-shadow">
               <CardContent className="pt-4 pb-4">
-                <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  onClick={() => openProfile(profile.id)}
+                >
                   <div>
                     <p className="font-semibold">{profile.name}</p>
                     <p className="text-sm text-muted-foreground">
@@ -183,7 +191,7 @@ export default function StyleProfilesPage() {
                     </p>
                   </div>
                   <Badge variant="secondary">{profile.genre}</Badge>
-                </div>
+                </button>
               </CardContent>
             </Card>
           ))}

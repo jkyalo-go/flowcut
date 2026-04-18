@@ -2,14 +2,34 @@
 import type { AppProps } from 'next/app'
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { IBM_Plex_Mono, IBM_Plex_Sans, Space_Grotesk } from 'next/font/google'
 import '@/styles/globals.css'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppShell } from '@/components/AppShell'
 import { useAuthStore } from '@/stores/authStore'
-import { api, ApiError, storeToken } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { User, Workspace } from '@/types'
 
-const PUBLIC_PATHS = ['/login', '/invitations', '/auth']
+const PUBLIC_PATHS = ['/login', '/register', '/invitations', '/auth']
+
+const displayFont = Space_Grotesk({
+  subsets: ['latin'],
+  variable: '--font-display',
+  display: 'swap',
+})
+
+const bodyFont = IBM_Plex_Sans({
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+})
+
+const monoFont = IBM_Plex_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
+  display: 'swap',
+  weight: ['400', '500'],
+})
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter()
@@ -21,7 +41,6 @@ export default function App({ Component, pageProps }: AppProps) {
         const data = await api.get<{ token: string; user: User; workspace: Workspace }>('/api/auth/me')
         setUser(data.user)
         setWorkspace(data.workspace)
-        storeToken(data.token)
         setToken(data.token)
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) {
@@ -36,34 +55,44 @@ export default function App({ Component, pageProps }: AppProps) {
 
   const isPublicPath = PUBLIC_PATHS.some(p => router.pathname.startsWith(p))
 
+  useEffect(() => {
+    if (isLoading || isPublicPath || user) return
+    void router.replace('/login')
+  }, [isLoading, isPublicPath, router, user])
+
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        Loading...
+      <div className="flex h-screen items-center justify-center bg-background px-6">
+        <div className="app-panel w-full max-w-md p-6 text-center">
+          <p className="eyebrow">FlowCut</p>
+          <p className="mt-3 text-sm text-muted-foreground">Restoring your workspace session…</p>
+        </div>
       </div>
     )
   }
 
   if (!user && !isPublicPath) {
-    if (typeof window !== 'undefined') {
-      router.replace('/login')
-    }
     return (
-      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
-        Redirecting...
+      <div className="flex h-screen items-center justify-center bg-background px-6">
+        <div className="app-panel w-full max-w-md p-6 text-center">
+          <p className="eyebrow">Authentication</p>
+          <p className="mt-3 text-sm text-muted-foreground">Redirecting to sign in…</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <ErrorBoundary>
-      {isPublicPath ? (
-        <Component {...pageProps} />
-      ) : (
-        <AppShell>
+    <div className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}>
+      <ErrorBoundary>
+        {isPublicPath ? (
           <Component {...pageProps} />
-        </AppShell>
-      )}
-    </ErrorBoundary>
+        ) : (
+          <AppShell>
+            <Component {...pageProps} />
+          </AppShell>
+        )}
+      </ErrorBoundary>
+    </div>
   )
 }
