@@ -106,6 +106,8 @@ class AIProviderRegistry:
         if selected_row is None and matching_rows:
             selected_row = matching_rows[0]
 
+        from common.secrets import unseal
+
         if selected_row is None:
             provider = TASK_PROVIDER_DEFAULTS.get(task_type, AIProvider.ANTHROPIC)
             model = DEFAULT_PROVIDER_MODELS[provider.value][0]
@@ -113,7 +115,7 @@ class AIProviderRegistry:
         else:
             provider = AIProvider(selected_row.provider if selected_row.provider != AIProvider.GEMINI.value else AIProvider.VERTEX.value)
             model = selected_row.model_key
-            platform_api_key = selected_row.api_key
+            platform_api_key = unseal(selected_row.api_key_enc) or selected_row.api_key
 
         cred = db.query(AIProviderCredential).filter(
             AIProviderCredential.workspace_id == workspace.id,
@@ -124,7 +126,8 @@ class AIProviderRegistry:
         if cred:
             allowed_models = json.loads(cred.allowed_models) if cred.allowed_models else [model]
             model = model if model in allowed_models else allowed_models[0]
-            return provider, model, CredentialSource.BYOK, cred.api_key
+            key = unseal(cred.api_key_enc) or cred.api_key
+            return provider, model, CredentialSource.BYOK, key
 
         return provider, model, CredentialSource.PLATFORM, platform_api_key
 
