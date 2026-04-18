@@ -28,3 +28,5 @@ firebase-admin>=6.5.0
 alembic>=1.13.0
 psycopg2-binary>=2.9.0
 passlib[bcrypt]>=1.7.4
+structlog>=24.1.0
+sentry-sdk[fastapi]>=2.14.0
